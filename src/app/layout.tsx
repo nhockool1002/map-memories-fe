@@ -1,7 +1,8 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import '@/styles/globals.css';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -14,13 +15,14 @@ export const metadata: Metadata = {
   description: 'Ứng dụng quản lý kỷ niệm và địa điểm trên bản đồ. Đánh dấu những nơi bạn đã đến và lưu giữ những kỷ niệm đẹp.',
   keywords: 'map, memories, địa điểm, kỷ niệm, bản đồ, travel, du lịch',
   authors: [{ name: 'Map Memories Team' }],
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
-  themeColor: '#16a34a',
   manifest: '/manifest.json',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#16a34a',
 };
 
 export default function RootLayout({
@@ -29,58 +31,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi" className={inter.variable}>
+    <html lang="vi" className="dark">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <meta name="theme-color" content="#16a34a" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Map Memories" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <meta charSet="utf-8" />
+        <title>Map Memories - Lưu giữ kỷ niệm trên bản đồ</title>
+        <meta name="description" content="Ứng dụng quản lý kỷ niệm và địa điểm trên bản đồ. Đánh dấu những nơi bạn đã đến và lưu giữ những kỷ niệm đẹp." />
+        <meta name="author" content="Map Memories Team" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="keywords" content="map, memories, địa điểm, kỷ niệm, bản đồ, travel, du lịch" />
+        <meta name="next-size-adjust" />
       </head>
-      <body className={`${inter.className} antialiased`}>
-        <main className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50">
+      <body className="antialiased bg-gray-900 text-gray-100">
+        <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
           {children}
         </main>
-        
-        {/* Toast notifications */}
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#ffffff',
-              color: '#374151',
-              borderRadius: '12px',
-              padding: '16px',
-              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-              border: '1px solid #e5e7eb',
-            },
-            success: {
-              iconTheme: {
-                primary: '#16a34a',
-                secondary: '#ffffff',
-              },
-              style: {
-                border: '1px solid #16a34a',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: '#dc2626',
-                secondary: '#ffffff',
-              },
-              style: {
-                border: '1px solid #dc2626',
-              },
-            },
-            loading: {
-              iconTheme: {
-                primary: '#16a34a',
-                secondary: '#ffffff',
-              },
-            },
-          }}
-        />
+        <Toaster />
       </body>
     </html>
   );

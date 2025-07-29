@@ -53,18 +53,29 @@ export const useAuth = (): UseAuthReturn => {
   const login = async (credentials: LoginRequest): Promise<boolean> => {
     try {
       setIsLoading(true);
+      console.log('Attempting login with:', { email: credentials.email });
+      
       const response = await apiClient.login(credentials);
+      console.log('Login response:', response);
       
       if (response.success && response.data) {
         setUser(response.data.user);
         apiClient.setCurrentUser(response.data.user);
         toast.success('Đăng nhập thành công!');
+        console.log('Login successful:', response.data.user);
         return true;
       }
       
+      console.log('Login failed - no success response');
       return false;
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('Login error:', {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        stack: error?.stack
+      });
+      
       const message = error?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại.';
       toast.error(message);
       return false;

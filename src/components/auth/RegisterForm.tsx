@@ -20,7 +20,7 @@ const registerSchema = z.object({
     .email('Email không hợp lệ'),
   password: z
     .string()
-    .min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
+    .min(4, 'Mật khẩu phải có ít nhất 4 ký tự'),
   confirmPassword: z
     .string()
     .min(1, 'Vui lòng xác nhận mật khẩu'),
@@ -78,183 +78,98 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onSwitchToLogin 
   };
 
   return (
-    <motion.div
-      className="w-full max-w-md mx-auto"
-      variants={formVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <motion.div variants={itemVariants} className="text-center mb-8">
-        <h1 className="text-3xl font-bold gradient-text mb-2">
-          Tạo tài khoản mới
-        </h1>
-        <p className="text-gray-600">
-          Bắt đầu hành trình lưu giữ kỷ niệm của bạn
-        </p>
-      </motion.div>
+    <div>
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold text-white mb-2">Đăng ký</h2>
+        <p className="text-gray-400">Tạo tài khoản mới</p>
+      </div>
 
-      <motion.form
-        variants={itemVariants}
-        onSubmit={handleSubmit(onSubmit)}
-        className="space-y-6"
-      >
-        {/* Username Field */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="form-label">
-            Tên người dùng
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Họ và tên
           </label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <input
-              {...register('username')}
-              type="text"
-              className={`form-input pl-12 ${errors.username ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
-              placeholder="username"
-            />
-          </div>
-          {errors.username && (
-            <motion.p
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="form-error"
-            >
-              {errors.username.message}
-            </motion.p>
+          <input
+            {...register('full_name')}
+            type="text"
+            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+            placeholder="Nhập họ và tên"
+          />
+          {errors.full_name && (
+            <p className="text-red-400 text-sm mt-1">{errors.full_name.message}</p>
           )}
         </div>
 
-        {/* Full Name Field */}
         <div>
-          <label className="form-label">
-            Họ và tên (tùy chọn)
-          </label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <input
-              {...register('full_name')}
-              type="text"
-              className="form-input pl-12"
-              placeholder="Nguyễn Văn A"
-            />
-          </div>
-        </div>
-
-        {/* Email Field */}
-        <div>
-          <label className="form-label">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Email
           </label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <input
-              {...register('email')}
-              type="email"
-              className={`form-input pl-12 ${errors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
-              placeholder="your@email.com"
-            />
-          </div>
+          <input
+            {...register('email')}
+            type="email"
+            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+            placeholder="Nhập email của bạn"
+          />
           {errors.email && (
-            <motion.p
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="form-error"
-            >
-              {errors.email.message}
-            </motion.p>
+            <p className="text-red-400 text-sm mt-1">{errors.email.message}</p>
           )}
         </div>
 
-        {/* Password Field */}
         <div>
-          <label className="form-label">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Mật khẩu
           </label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <input
-              {...register('password')}
-              type={showPassword ? 'text' : 'password'}
-              className={`form-input pl-12 pr-12 ${errors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
-              placeholder="••••••••"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
-          </div>
+          <input
+            {...register('password')}
+            type="password"
+            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+            placeholder="Nhập mật khẩu"
+          />
           {errors.password && (
-            <motion.p
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="form-error"
-            >
-              {errors.password.message}
-            </motion.p>
+            <p className="text-red-400 text-sm mt-1">{errors.password.message}</p>
           )}
         </div>
 
-        {/* Confirm Password Field */}
         <div>
-          <label className="form-label">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Xác nhận mật khẩu
           </label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <input
-              {...register('confirmPassword')}
-              type={showConfirmPassword ? 'text' : 'password'}
-              className={`form-input pl-12 pr-12 ${errors.confirmPassword ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
-              placeholder="••••••••"
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
-          </div>
+          <input
+            {...register('confirmPassword')}
+            type="password"
+            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+            placeholder="Nhập lại mật khẩu"
+          />
           {errors.confirmPassword && (
-            <motion.p
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="form-error"
-            >
-              {errors.confirmPassword.message}
-            </motion.p>
+            <p className="text-red-400 text-sm mt-1">{errors.confirmPassword.message}</p>
           )}
         </div>
 
-        {/* Submit Button */}
         <Button
           type="submit"
+          variant="primary"
           fullWidth
-          loading={isSubmitting || isLoading}
-          disabled={isSubmitting || isLoading}
+          loading={isLoading}
+          disabled={isLoading}
+          className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
         >
-          Đăng ký
+          {isLoading ? 'Đang đăng ký...' : 'Đăng ký'}
         </Button>
+      </form>
 
-        {/* Switch to Login */}
-        {onSwitchToLogin && (
-          <motion.div variants={itemVariants} className="text-center">
-            <p className="text-gray-600">
-              Đã có tài khoản?{' '}
-              <button
-                type="button"
-                onClick={onSwitchToLogin}
-                className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
-              >
-                Đăng nhập ngay
-              </button>
-            </p>
-          </motion.div>
-        )}
-      </motion.form>
-    </motion.div>
+      <div className="mt-6 text-center">
+        <p className="text-gray-400 text-sm">
+          Đã có tài khoản?{' '}
+          <button
+            type="button"
+            onClick={onSwitchToLogin}
+            className="text-green-400 hover:text-green-300 font-medium transition-colors"
+          >
+            Đăng nhập
+          </button>
+        </p>
+      </div>
+    </div>
   );
 };
 

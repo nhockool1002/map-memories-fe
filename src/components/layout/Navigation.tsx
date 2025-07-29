@@ -49,7 +49,7 @@ const Navigation: React.FC = () => {
   return (
     <>
       {/* Desktop & Mobile Header */}
-      <header className="bg-white shadow-lg border-b border-gray-100 sticky top-0 z-50">
+      <header className="bg-gray-800 shadow-lg border-b border-gray-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
@@ -57,10 +57,10 @@ const Navigation: React.FC = () => {
               href="/" 
               className="flex items-center space-x-3 hover:scale-105 transition-transform"
             >
-              <div className="bg-gradient-primary rounded-full p-2">
+              <div className="bg-gradient-to-r from-green-500 to-blue-500 rounded-full p-2">
                 <MapPin className="h-6 w-6 text-white" />
               </div>
-              <span className="text-xl font-bold gradient-text hidden sm:block">
+              <span className="text-xl font-bold text-white hidden sm:block">
                 Map Memories
               </span>
             </Link>
@@ -75,8 +75,8 @@ const Navigation: React.FC = () => {
                     href={item.href}
                     className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
                       isActivePath(item.href)
-                        ? 'text-primary-700 bg-primary-50'
-                        : 'text-gray-600 hover:text-primary-700 hover:bg-primary-50'
+                        ? 'text-green-400 bg-gray-700'
+                        : 'text-gray-300 hover:text-green-400 hover:bg-gray-700'
                     }`}
                   >
                     <Icon className="h-5 w-5" />
@@ -90,17 +90,8 @@ const Navigation: React.FC = () => {
             <div className="hidden md:flex items-center space-x-4">
               {isAuthenticated ? (
                 <>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => router.push('/memories/create')}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Tạo kỷ niệm
-                  </Button>
-                  
-                  <div className="flex items-center space-x-2 text-gray-700">
-                    <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center">
+                  <div className="flex items-center space-x-2 text-gray-300">
+                    <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center">
                       <User className="h-4 w-4 text-white" />
                     </div>
                     <span className="text-sm font-medium">
@@ -112,6 +103,7 @@ const Navigation: React.FC = () => {
                     variant="ghost"
                     size="sm"
                     onClick={handleLogout}
+                    className="text-gray-300 hover:text-white hover:bg-gray-700"
                   >
                     <LogOut className="h-4 w-4" />
                   </Button>
@@ -122,6 +114,7 @@ const Navigation: React.FC = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => router.push('/auth')}
+                    className="text-gray-300 hover:text-white hover:bg-gray-700"
                   >
                     Đăng nhập
                   </Button>
@@ -138,7 +131,7 @@ const Navigation: React.FC = () => {
 
             {/* Mobile Menu Button */}
             <button
-              className="md:hidden p-2 rounded-lg text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-colors touch-target"
+              className="md:hidden p-2 rounded-lg text-gray-300 hover:text-green-400 hover:bg-gray-700 transition-colors touch-target"
               onClick={toggleMobileMenu}
             >
               {isMobileMenuOpen ? (
@@ -167,25 +160,25 @@ const Navigation: React.FC = () => {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="fixed left-0 top-0 h-full w-80 bg-white shadow-xl overflow-y-auto safe-area-top safe-area-bottom"
+              className="fixed left-0 top-0 h-full w-80 bg-gray-800 shadow-xl overflow-y-auto safe-area-top safe-area-bottom"
             >
               {/* Mobile Menu Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between p-6 border-b border-gray-700">
                 <Link 
                   href="/" 
                   className="flex items-center space-x-3"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <div className="bg-gradient-primary rounded-full p-2">
+                  <div className="bg-gradient-to-r from-green-500 to-blue-500 rounded-full p-2">
                     <MapPin className="h-6 w-6 text-white" />
                   </div>
-                  <span className="text-xl font-bold gradient-text">
+                  <span className="text-xl font-bold text-white">
                     Map Memories
                   </span>
                 </Link>
                 
                 <button
-                  className="p-2 rounded-lg text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-colors"
+                  className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
                   onClick={toggleMobileMenu}
                 >
                   <X className="h-6 w-6" />
@@ -194,16 +187,16 @@ const Navigation: React.FC = () => {
 
               {/* User Info */}
               {isAuthenticated && user && (
-                <div className="p-6 border-b border-gray-100">
+                <div className="p-6 border-b border-gray-700">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
+                    <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center">
                       <User className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">
+                      <p className="font-semibold text-white">
                         {user.full_name || user.username}
                       </p>
-                      <p className="text-sm text-gray-500">{user.email}</p>
+                      <p className="text-sm text-gray-400">{user.email}</p>
                     </div>
                   </div>
                 </div>
@@ -219,8 +212,8 @@ const Navigation: React.FC = () => {
                       href={item.href}
                       className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors touch-target ${
                         isActivePath(item.href)
-                          ? 'text-primary-700 bg-primary-50'
-                          : 'text-gray-600 hover:text-primary-700 hover:bg-primary-50'
+                          ? 'text-green-400 bg-gray-700'
+                          : 'text-gray-300 hover:text-green-400 hover:bg-gray-700'
                       }`}
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
@@ -233,17 +226,8 @@ const Navigation: React.FC = () => {
                 {isAuthenticated && (
                   <>
                     <Link
-                      href="/memories/create"
-                      className="flex items-center space-x-3 px-4 py-3 rounded-lg text-primary-700 bg-primary-50 transition-colors touch-target"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      <Plus className="h-5 w-5" />
-                      <span className="font-medium">Tạo kỷ niệm</span>
-                    </Link>
-
-                    <Link
                       href="/settings"
-                      className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-colors touch-target"
+                      className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-300 hover:text-green-400 hover:bg-gray-700 transition-colors touch-target"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <Settings className="h-5 w-5" />
@@ -254,7 +238,7 @@ const Navigation: React.FC = () => {
               </nav>
 
               {/* Action Buttons */}
-              <div className="p-6 border-t border-gray-100 mt-auto">
+              <div className="p-6 border-t border-gray-700 mt-auto">
                 {isAuthenticated ? (
                   <Button
                     variant="danger"

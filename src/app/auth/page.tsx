@@ -11,168 +11,46 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
-  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
 
-  // Redirect if already authenticated
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    if (isAuthenticated) {
       router.push('/');
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, router]);
 
   const handleAuthSuccess = () => {
     router.push('/');
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Đang kiểm tra phiên đăng nhập..." />
-      </div>
-    );
-  }
-
-  if (isAuthenticated) {
-    return null; // Will redirect
-  }
-
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - Branding (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-dark relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/20" />
-        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1 }}
-            className="text-center"
-          >
-            <div className="flex items-center justify-center mb-8">
-              <motion.div
-                className="bg-white/10 backdrop-blur-sm rounded-full p-6"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-              >
-                <MapPin className="h-16 w-16 text-white" />
-              </motion.div>
-            </div>
-            
-            <h1 className="text-6xl font-bold mb-6">
-              Map Memories
-            </h1>
-            
-            <p className="text-xl text-white/80 mb-8 max-w-md">
-              Lưu giữ những kỷ niệm đẹp nhất của bạn trên bản đồ. 
-              Khám phá lại những nơi đã đến và những câu chuyện đã trải qua.
-            </p>
-
-            <motion.div
-              className="flex items-center justify-center space-x-2 text-white/60"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-            >
-              <Heart className="h-5 w-5" />
-              <span>Được tạo nên với tình yêu</span>
-              <Heart className="h-5 w-5" />
-            </motion.div>
-          </motion.div>
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center mb-4">
+            <MapPin className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-3xl font-bold text-white mb-2">
+            Map Memories
+          </h2>
+          <p className="text-gray-300">
+            Đăng nhập để lưu giữ kỷ niệm trên bản đồ
+          </p>
         </div>
 
-        {/* Floating elements */}
-        <motion.div
-          className="absolute top-20 left-20 w-20 h-20 bg-white/10 rounded-full"
-          animate={{ y: [0, -20, 0] }}
-          transition={{ duration: 4, repeat: Infinity }}
-        />
-        <motion.div
-          className="absolute bottom-20 right-20 w-16 h-16 bg-white/10 rounded-full"
-          animate={{ y: [0, 20, 0] }}
-          transition={{ duration: 3, repeat: Infinity }}
-        />
-        <motion.div
-          className="absolute top-1/2 left-10 w-12 h-12 bg-white/10 rounded-full"
-          animate={{ x: [0, 20, 0] }}
-          transition={{ duration: 5, repeat: Infinity }}
-        />
-      </div>
+        <div className="bg-gray-800 rounded-xl shadow-2xl p-8 border border-gray-700">
+          {isLogin ? (
+            <LoginForm onSwitchToRegister={() => setIsLogin(false)} />
+          ) : (
+            <RegisterForm onSwitchToLogin={() => setIsLogin(true)} />
+          )}
+        </div>
 
-      {/* Right side - Auth forms */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12">
-        <div className="w-full max-w-md">
-          {/* Mobile branding */}
-          <motion.div
-            className="lg:hidden text-center mb-8"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <div className="flex items-center justify-center mb-4">
-              <div className="bg-gradient-primary rounded-full p-3">
-                <MapPin className="h-8 w-8 text-white" />
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold gradient-text">
-              Map Memories
-            </h1>
-          </motion.div>
-
-          {/* Auth form container */}
-          <motion.div
-            className="card p-8"
-            layout
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          >
-            <AnimatePresence mode="wait">
-              {isLogin ? (
-                <motion.div
-                  key="login"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <LoginForm
-                    onSuccess={handleAuthSuccess}
-                    onSwitchToRegister={() => setIsLogin(false)}
-                  />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="register"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <RegisterForm
-                    onSuccess={handleAuthSuccess}
-                    onSwitchToLogin={() => setIsLogin(true)}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-
-          {/* Footer */}
-          <motion.div
-            className="text-center mt-8 text-sm text-gray-500"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-          >
-            <p>
-              Bằng cách đăng ký, bạn đồng ý với{' '}
-              <a href="#" className="text-primary-600 hover:text-primary-700">
-                Điều khoản sử dụng
-              </a>{' '}
-              và{' '}
-              <a href="#" className="text-primary-600 hover:text-primary-700">
-                Chính sách bảo mật
-              </a>
-            </p>
-          </motion.div>
+        <div className="text-center">
+          <p className="text-gray-400 text-sm">
+            © 2024 Map Memories. Tất cả quyền được bảo lưu.
+          </p>
         </div>
       </div>
     </div>
