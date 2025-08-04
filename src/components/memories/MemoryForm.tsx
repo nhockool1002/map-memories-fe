@@ -1,49 +1,50 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
 import { 
-  Save, 
   MapPin, 
   Calendar, 
-  Image as ImageIcon, 
+  Upload, 
   X, 
-  Plus, 
-  Upload,
-  Eye,
-  EyeOff 
+  Tag, 
+  Plus,
+  FileText,
+  Image as ImageIcon,
+  Video,
+  File,
+  Save
 } from 'lucide-react';
-import { Location, CreateMemoryRequest, Memory, Media } from '@/types/api';
-import Button from '@/components/ui/Button';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
+import { Memory, Location, Media, UserShopItem } from '@/types/api';
 import apiClient from '@/lib/api';
-import toast from 'react-hot-toast';
+import { useAuth } from '@/hooks/useAuth';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import dynamic from 'next/dynamic';
+import Button from '@/components/ui/Button';
+import { format } from 'date-fns';
+
+// Dynamic import for RichTextEditor to avoid SSR issues
+const RichTextEditor = dynamic(() => import('@/components/ui/RichTextEditor'), {
+  ssr: false,
+  loading: () => (
+    <div className="border border-gray-300 rounded-lg p-4 min-h-[200px] bg-gray-50 flex items-center justify-center">
+      <div className="text-gray-500">Đang tải editor...</div>
+    </div>
+  ),
+});
 
 const memorySchema = z.object({
-  title: z
-    .string()
-    .min(1, 'Tiêu đề là bắt buộc')
-    .max(255, 'Tiêu đề không được quá 255 ký tự'),
-  content: z
-    .string()
-    .min(10, 'Nội dung phải có ít nhất 10 ký tự')
-    .max(5000, 'Nội dung không được quá 5000 ký tự'),
-  location_id: z
-    .number()
-    .min(1, 'Vui lòng chọn địa điểm'),
-  visit_date: z
-    .string()
-    .min(1, 'Ngày ghé thăm là bắt buộc'),
-  is_public: z
-    .boolean()
-    .default(true),
-  tags: z
-    .array(z.string())
-    .default([]),
+  title: z.string().min(1, 'Tiêu đề không được để trống').max(200, 'Tiêu đề quá dài'),
+  location_id: z.number().optional(),
+  content: z.string().min(1, 'Nội dung không được để trống'),
+  visit_date: z.string().min(1, 'Vui lòng chọn ngày ghé thăm'),
+  tags: z.array(z.string()).default([]),
+  is_public: z.boolean().default(false),
+  marker_item_id: z.number().optional(),
 });
 
 type MemoryFormData = z.infer<typeof memorySchema>;
@@ -63,37 +64,40 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
   preselectedLocation,
   className = '',
 }) => {
+  const { userItems } = useAuth();
   const [locations, setLocations] = useState<Location[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadedMedia, setUploadedMedia] = useState<Media[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [selectedMarker, setSelectedMarker] = useState<UserShopItem | null>(null);
 
   const isEditing = !!memory;
 
-  const {
-    register,
-    control,
-    handleSubmit,
-    watch,
-    setValue,
-    getValues,
-    formState: { errors, isSubmitting },
-  } = useForm<MemoryFormData>({
+  const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<MemoryFormData>({
     resolver: zodResolver(memorySchema),
     defaultValues: {
       title: memory?.title || '',
       content: memory?.content || '',
-      location_id: memory?.location.id || preselectedLocation?.id || 0,
+      location_id: memory?.location?.id || undefined, // Only set if editing existing memory
       visit_date: memory?.visit_date || format(new Date(), 'yyyy-MM-dd'),
-      is_public: memory?.is_public ?? true,
+      is_public: memory?.is_public ?? false,
       tags: memory?.tags || [],
+      marker_item_id: undefined,
     },
   });
 
   const watchedTags = watch('tags');
   const watchedIsPublic = watch('is_public');
+
+  // Filter user items that can be used as markers
+  const markerItems = userItems.filter(item => item.shop_item && item.shop_item.image_url);
+
+  // Debug logging
+  console.log('MemoryForm - userItems:', userItems);
+  console.log('MemoryForm - markerItems:', markerItems);
+  console.log('MemoryForm - selectedMarker:', selectedMarker);
 
   // Load locations
   useEffect(() => {
@@ -118,7 +122,39 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
     };
 
     loadLocations();
-  }, [preselectedLocation, memory, setValue]);
+  }, [preselectedLocation?.id, memory?.id, setValue]);
+
+  // Auto-create location from coordinates if preselectedLocation is provided
+  useEffect(() => {
+    if (preselectedLocation && preselectedLocation.latitude && preselectedLocation.longitude) {
+      // Create a temporary location object for display
+      const tempLocation: Location = {
+        id: -1, // Temporary ID
+        uuid: '',
+        name: `Địa điểm tại ${preselectedLocation.latitude.toFixed(4)}, ${preselectedLocation.longitude.toFixed(4)}`,
+        description: `Vị trí được chọn tại tọa độ ${preselectedLocation.latitude.toFixed(4)}, ${preselectedLocation.longitude.toFixed(4)}`,
+        latitude: preselectedLocation.latitude,
+        longitude: preselectedLocation.longitude,
+        address: '',
+        country: 'Việt Nam', // Default country
+        city: 'Hà Nội', // Default city - will be updated by reverse geocoding
+        memory_count: 0,
+        created_at: '',
+        updated_at: '',
+      };
+      
+      // Add to locations list if not already present
+      if (!locations.find(loc => 
+        loc.latitude === preselectedLocation.latitude && 
+        loc.longitude === preselectedLocation.longitude
+      )) {
+        setLocations(prev => [tempLocation, ...prev]);
+      }
+      
+      // Set as selected location
+      setValue('location_id', tempLocation.id);
+    }
+  }, [preselectedLocation, setValue]);
 
   // Load existing media for editing
   useEffect(() => {
@@ -197,6 +233,64 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
     try {
       let result;
       
+      // Prepare request data
+      const requestData: any = {
+        ...data,
+        marker_item_id: selectedMarker?.id,
+      };
+
+      console.log('=== DEBUG: Memory Creation ===');
+      console.log('Selected marker:', selectedMarker);
+      console.log('Selected marker ID:', selectedMarker?.id);
+      console.log('Request data before location creation:', requestData);
+
+      // If we have preselectedLocation, create location first
+      if (preselectedLocation) {
+        try {
+          console.log('Creating location with coordinates:', {
+            lat: preselectedLocation.latitude,
+            lng: preselectedLocation.longitude,
+            country: preselectedLocation.country,
+            city: preselectedLocation.city
+          });
+
+          // Create location first with marker_item_id
+          const locationData = {
+            name: `Địa điểm tại ${preselectedLocation.latitude.toFixed(4)}, ${preselectedLocation.longitude.toFixed(4)}`,
+            description: `Vị trí được chọn tại tọa độ ${preselectedLocation.latitude.toFixed(4)}, ${preselectedLocation.longitude.toFixed(4)}`,
+            latitude: preselectedLocation.latitude,
+            longitude: preselectedLocation.longitude,
+            country: preselectedLocation.country,
+            city: preselectedLocation.city,
+            marker_item_id: selectedMarker?.id, // Add marker_item_id to location request
+          };
+
+          console.log('Location data to send:', locationData);
+          const locationResult = await apiClient.createLocation(locationData);
+          
+          console.log('Location creation result:', locationResult);
+          
+          if (locationResult.success && locationResult.data) {
+            // Use the created location's ID
+            requestData.location_id = locationResult.data.id;
+            console.log('Created location with ID:', locationResult.data.id);
+          } else {
+            throw new Error('Không thể tạo địa điểm');
+          }
+        } catch (error) {
+          console.error('Error creating location:', error);
+          toast.error('Không thể tạo địa điểm. Vui lòng thử lại.');
+          return;
+        }
+      } else {
+        // If no preselectedLocation, we need a location_id
+        if (!data.location_id) {
+          toast.error('Vui lòng chọn địa điểm hoặc click trên bản đồ để tạo địa điểm mới.');
+          return;
+        }
+        requestData.location_id = data.location_id;
+      }
+      
       if (isEditing && memory) {
         // Update existing memory
         const updateData = {
@@ -205,11 +299,17 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
           visit_date: data.visit_date,
           is_public: data.is_public,
           tags: data.tags,
+          marker_item_id: selectedMarker?.id,
         };
         result = await apiClient.updateMemory(memory.uuid, updateData);
       } else {
-        // Create new memory
-        result = await apiClient.createMemory(data);
+        // Create new memory (without marker_item_id)
+        delete requestData.marker_item_id; // Remove marker_item_id from memory request
+        console.log('Creating memory with data:', requestData);
+        console.log('Selected marker:', selectedMarker);
+        console.log('Marker item ID was sent to location, not memory');
+        result = await apiClient.createMemory(requestData);
+        console.log('Memory creation result:', result);
       }
 
       if (result.success && result.data) {
@@ -261,6 +361,20 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
             : 'Lưu giữ những khoảnh khắc đáng nhớ của bạn'
           }
         </p>
+        
+        {/* Coordinates Display */}
+        {preselectedLocation && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <MapPin className="h-5 w-5 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">Tọa độ đã chọn:</span>
+            </div>
+            <div className="mt-2 text-sm text-blue-700">
+              <div>Vĩ độ: <span className="font-mono font-semibold">{preselectedLocation.latitude.toFixed(6)}</span></div>
+              <div>Kinh độ: <span className="font-mono font-semibold">{preselectedLocation.longitude.toFixed(6)}</span></div>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       <motion.form
@@ -288,39 +402,93 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
           )}
         </div>
 
-        {/* Location */}
-        <div>
-          <label className="form-label">Địa điểm</label>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <select
-              {...register('location_id', { valueAsNumber: true })}
-              className={`form-input pl-12 ${errors.location_id ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
-              disabled={loadingLocations}
-            >
-              <option value={0}>Chọn địa điểm...</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name} - {location.city}, {location.country}
-                </option>
-              ))}
-            </select>
-            {loadingLocations && (
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <LoadingSpinner size="sm" />
+        {/* Marker Selection */}
+        {markerItems.length > 0 && (
+          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <label className="form-label text-lg font-semibold text-gray-800">🎯 Chọn marker cho địa điểm</label>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {markerItems.map((userItem) => (
+                  <div
+                    key={userItem.uuid}
+                    className={`relative cursor-pointer rounded-lg border-2 p-3 transition-all hover:scale-105 ${
+                      selectedMarker?.uuid === userItem.uuid
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => {
+                      console.log('Marker clicked:', userItem);
+                      setSelectedMarker(userItem);
+                    }}
+                  >
+                    <div className="flex flex-col items-center space-y-2">
+                      <div className="w-12 h-12 flex items-center justify-center">
+                        <img
+                          src={userItem.shop_item.image_url}
+                          alt={userItem.shop_item.name}
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            target.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                        <div className="w-full h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white text-xs hidden">
+                          {userItem.shop_item.name.charAt(0).toUpperCase()}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs font-medium text-gray-700 truncate">
+                          {userItem.shop_item.name}
+                        </p>
+                      </div>
+                    </div>
+                    {selectedMarker?.uuid === userItem.uuid && (
+                      <div className="absolute -top-1 -right-1 w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            )}
+              {selectedMarker && (
+                <div className="flex items-center justify-between p-3 bg-primary-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 flex items-center justify-center">
+                      <img
+                        src={selectedMarker.shop_item.image_url}
+                        alt={selectedMarker.shop_item.name}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">
+                        Marker đã chọn: {selectedMarker.shop_item.name}
+                      </p>
+                      {selectedMarker.shop_item.description && (
+                        <p className="text-xs text-gray-500">
+                          {selectedMarker.shop_item.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMarker(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Chọn marker để hiển thị trên bản đồ. Nếu không chọn, sẽ sử dụng marker mặc định.
+            </p>
           </div>
-          {errors.location_id && (
-            <motion.p
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="form-error"
-            >
-              {errors.location_id.message}
-            </motion.p>
-          )}
-        </div>
+        )}
 
         {/* Visit Date */}
         <div>
@@ -330,7 +498,7 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
             <input
               {...register('visit_date')}
               type="date"
-              className={`form-input pl-12 ${errors.visit_date ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+              className={`form-input pl-12 pr-4 ${errors.visit_date ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
             />
           </div>
           {errors.visit_date && (
@@ -347,17 +515,17 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
         {/* Content */}
         <div>
           <label className="form-label">Nội dung kỷ niệm</label>
-          <textarea
-            {...register('content')}
-            rows={6}
-            className={`form-input resize-none ${errors.content ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+          <RichTextEditor
+            value={watch('content')}
+            onChange={(content) => setValue('content', content)}
             placeholder="Chia sẻ câu chuyện, cảm xúc và những điều đặc biệt về chuyến đi của bạn..."
+            className={errors.content ? 'border-red-500' : ''}
           />
           {errors.content && (
             <motion.p
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
-              className="form-error"
+              className="form-error mt-2"
             >
               {errors.content.message}
             </motion.p>
@@ -368,13 +536,14 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
         <div>
           <label className="form-label">Thẻ tag</label>
           <div className="space-y-3">
-            <div className="flex space-x-2">
+            <div className="flex items-center space-x-2">
+              <Tag className="h-5 w-5 text-gray-400" />
               <input
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                className="form-input flex-1"
+                className="flex-1 form-input"
                 placeholder="Thêm thẻ tag..."
               />
               <Button
@@ -391,16 +560,16 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
               <div className="flex flex-wrap gap-2">
                 {watchedTags.map((tag, index) => (
                   <motion.span
-                    key={index}
+                    key={tag}
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="bg-primary-100 text-primary-700 px-3 py-1 rounded-full text-sm flex items-center space-x-2"
+                    className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800"
                   >
-                    <span>#{tag}</span>
+                    #{tag}
                     <button
                       type="button"
                       onClick={() => removeTag(index)}
-                      className="text-primary-500 hover:text-primary-700"
+                      className="ml-2 text-primary-600 hover:text-primary-800"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -411,46 +580,11 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
           </div>
         </div>
 
-        {/* Privacy Setting */}
-        <div>
-          <label className="form-label">Quyền riêng tư</label>
-          <div className="flex items-center space-x-3">
-            <Controller
-              name="is_public"
-              control={control}
-              render={({ field }) => (
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={field.value}
-                    onChange={(e) => field.onChange(e.target.checked)}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  <span className="text-sm text-gray-700">Công khai kỷ niệm này</span>
-                </label>
-              )}
-            />
-            <div className="text-sm text-gray-500">
-              {watchedIsPublic ? (
-                <div className="flex items-center text-green-600">
-                  <Eye className="h-4 w-4 mr-1" />
-                  Mọi người có thể xem
-                </div>
-              ) : (
-                <div className="flex items-center text-gray-600">
-                  <EyeOff className="h-4 w-4 mr-1" />
-                  Chỉ bạn có thể xem
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* File Upload */}
         <div>
-          <label className="form-label">Hình ảnh & Video</label>
+          <label className="form-label">Tệp đính kèm</label>
           <div className="space-y-4">
-            {/* File Input */}
+            {/* File Selection */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-400 transition-colors">
               <input
                 type="file"
@@ -461,60 +595,68 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
                 id="file-upload"
               />
               <label htmlFor="file-upload" className="cursor-pointer">
-                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600 mb-2">Kéo thả file hoặc nhấp để chọn</p>
-                <p className="text-sm text-gray-500">Hỗ trợ hình ảnh và video (tối đa 50MB/file)</p>
+                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <p className="mt-2 text-sm text-gray-600">
+                  Click để chọn file hoặc kéo thả vào đây
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Hỗ trợ: JPG, PNG, GIF, MP4, MOV (tối đa 50MB/file)
+                </p>
               </label>
             </div>
 
             {/* Selected Files */}
             {selectedFiles.length > 0 && (
-              <div>
-                <h4 className="font-medium text-gray-700 mb-2">File đã chọn:</h4>
-                <div className="space-y-2">
-                  {selectedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <ImageIcon className="h-5 w-5 text-gray-400" />
-                        <span className="text-sm text-gray-700">{file.name}</span>
-                        <span className="text-xs text-gray-500">
-                          ({(file.size / 1024 / 1024).toFixed(1)} MB)
-                        </span>
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-700">Files đã chọn:</h4>
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      {file.type.startsWith('image/') ? (
+                        <ImageIcon className="h-5 w-5 text-blue-500" />
+                      ) : file.type.startsWith('video/') ? (
+                        <Video className="h-5 w-5 text-red-500" />
+                      ) : (
+                        <File className="h-5 w-5 text-gray-500" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">{file.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeSelectedFile(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
                     </div>
-                  ))}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => removeSelectedFile(index)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
 
             {/* Uploaded Media */}
             {uploadedMedia.length > 0 && (
-              <div>
-                <h4 className="font-medium text-gray-700 mb-2">Media đã tải lên:</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {uploadedMedia.map((media) => (
-                    <div key={media.id} className="relative group">
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-700">Files đã tải lên:</h4>
+                {uploadedMedia.map((media) => (
+                  <div key={media.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
                       {media.media_type === 'image' ? (
-                        <img
-                          src={apiClient.getMediaFileUrl(media.uuid)}
-                          alt={media.original_filename}
-                          className="w-full h-24 object-cover rounded-lg"
-                        />
+                        <ImageIcon className="h-5 w-5 text-green-500" />
                       ) : (
-                        <div className="w-full h-24 bg-gray-200 rounded-lg flex items-center justify-center">
-                          <span className="text-sm text-gray-600">Video</span>
-                        </div>
+                        <Video className="h-5 w-5 text-green-500" />
                       )}
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">{media.filename}</p>
+                        <p className="text-xs text-gray-500">Đã tải lên thành công</p>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -526,7 +668,7 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
             type="submit"
             variant="primary"
             fullWidth
-            loading={isSubmitting || uploading}
+            loading={isSubmitting}
             disabled={isSubmitting || uploading}
           >
             <Save className="h-5 w-5 mr-2" />
@@ -537,11 +679,10 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
             <Button
               type="button"
               variant="secondary"
-              fullWidth
               onClick={onCancel}
               disabled={isSubmitting || uploading}
             >
-              Hủy bỏ
+              Hủy
             </Button>
           )}
         </div>

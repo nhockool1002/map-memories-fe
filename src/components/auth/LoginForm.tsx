@@ -38,7 +38,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToRegister }) 
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    console.log('Form submitted with data:', data);
     const success = await login(data);
     if (success && onSuccess) {
       onSuccess();

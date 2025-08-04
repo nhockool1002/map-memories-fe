@@ -4,20 +4,22 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Map, { Marker, NavigationControl, GeolocateControl } from 'react-map-gl';
 import { useAuth } from '@/hooks/useAuth';
 import Navigation from '@/components/layout/Navigation';
-import { Location } from '@/types/api';
+import { Location, Memory, UserShopItem } from '@/types/api';
 import apiClient from '@/lib/api';
 import { Plus, Heart, AlertTriangle, Info } from 'lucide-react';
 import MemoryModal from '@/components/memories/MemoryModal';
 import ViewMemoriesModal from '@/components/memories/ViewMemoriesModal';
+import CustomMarker from '@/components/map/CustomMarker';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 export default function HomePage() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, userItems } = useAuth();
   const [locations, setLocations] = useState<Location[]>([]);
+  const [memories, setMemories] = useState<Memory[]>([]);
   const [viewState, setViewState] = useState({
     longitude: 106.6297, // Hồ Chí Minh City
     latitude: 10.8231,
-    zoom: 10
+    zoom: 6
   });
   const [clickedLocation, setClickedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showMemoryModal, setShowMemoryModal] = useState(false);
@@ -26,31 +28,72 @@ export default function HomePage() {
   const [tempMarker, setTempMarker] = useState<{ lat: number; lng: number } | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [locationsLoaded, setLocationsLoaded] = useState(false);
 
   const mapboxAccessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-  useEffect(() => {
-    console.log('HomePage mounted');
-    console.log('Auth state:', { isAuthenticated, isLoading });
-    console.log('User:', user);
-    console.log('API authenticated:', apiClient.isAuthenticated());
-    console.log('Current user from API:', apiClient.getCurrentUser());
-    loadLocations();
-  }, [isAuthenticated, isLoading, user]);
-
-  const loadLocations = async () => {
+  const loadLocations = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
     try {
       const response = await apiClient.getLocations();
       if (response.success && response.data) {
         // Filter locations that have memories for the current user
         const userLocations = response.data.filter(location => location.memory_count > 0);
         setLocations(userLocations);
-        console.log('User locations loaded:', userLocations);
+        setLocationsLoaded(true);
       }
     } catch (error) {
       console.error('Error loading locations:', error);
     }
-  };
+  }, [isAuthenticated]);
+
+  const loadMemories = useCallback(async () => {
+    try {
+      console.log('Loading memories...');
+      const response = await apiClient.getMemories({ limit: 100 });
+      console.log('Memories API response:', response);
+      if (response.success && response.data) {
+        console.log('Setting memories:', response.data);
+        setMemories(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading memories:', error);
+    }
+  }, [isAuthenticated]);
+
+  const getUserItemForMemory = useCallback((memory: Memory) => {
+    // Check if memory has marker_item_id first
+    if (memory.marker_item_id) {
+      console.log('Memory has marker_item_id:', memory.marker_item_id);
+      const userShopItem = userItems.find(item => item.id === memory.marker_item_id);
+      console.log('Looking for marker_item_id in memory:', memory.marker_item_id, 'Found:', userShopItem);
+      return userShopItem || undefined;
+    }
+    
+    // If memory doesn't have marker_item_id, check location
+    if (memory.location && memory.location.marker_item_id) {
+      console.log('Location has marker_item_id:', memory.location.marker_item_id);
+      const userShopItem = userItems.find(item => item.id === memory.location.marker_item_id);
+      console.log('Looking for marker_item_id in location:', memory.location.marker_item_id, 'Found:', userShopItem);
+      return userShopItem || undefined;
+    }
+    
+    console.log('Neither memory nor location has marker_item_id:', memory.uuid);
+    return undefined;
+  }, [userItems]);
+
+  // Debug logging
+  console.log('HomePage - userItems:', userItems);
+  console.log('HomePage - memories:', memories);
+  console.log('HomePage - memories with marker_item_id:', memories.filter(m => m.marker_item_id));
+
+  useEffect(() => {
+    if (!isLoading && !locationsLoaded && isAuthenticated) {
+      loadLocations();
+      loadMemories();
+    }
+  }, [isLoading, locationsLoaded, isAuthenticated, loadLocations, loadMemories]);
 
   const handleMapClick = useCallback((event: any) => {
     if (!isAuthenticated) {
@@ -70,10 +113,37 @@ export default function HomePage() {
   }, []);
 
   const handleMemoryCreated = useCallback(() => {
+    console.log('Memory created, reloading data...');
     setShowMemoryModal(false);
-    setClickedLocation(null);
     setTempMarker(null);
-    loadLocations(); // Reload locations to show new markers
+    
+    // Force reload all data
+    setLocationsLoaded(false);
+    setMemories([]); // Clear memories to force reload
+    setLocations([]); // Clear locations to force reload
+    
+    // Reload data after a short delay to ensure backend has processed
+    setTimeout(() => {
+      console.log('Reloading locations and memories...');
+      loadLocations();
+      loadMemories();
+    }, 500);
+    
+    // Note: userItems will be reloaded automatically by useAuth hook
+  }, [loadLocations, loadMemories]);
+
+  const handleMemoryDeleted = useCallback(() => {
+    console.log('Memory deleted, clearing map state...');
+    setShowViewMemoriesModal(false);
+    setSelectedLocation(null);
+    
+    // Clear locations ngay lập tức để markers biến mất
+    setLocations([]);
+    setLocationsLoaded(false);
+    
+    // Không reload ngay lập tức để tránh load lại location đã bị xóa
+    // User có thể tự reload bằng cách click vào marker khác
+    console.log('Map state cleared, no immediate reload');
   }, []);
 
   const handleMapLoad = useCallback(() => {
@@ -108,29 +178,60 @@ export default function HomePage() {
           <GeolocateControl position="top-left" />
 
           {/* Existing Location Markers */}
-          {locations.map((location) => (
-            <Marker
-              key={location.uuid}
-              longitude={location.longitude}
-              latitude={location.latitude}
-              anchor="bottom"
-              onClick={(e) => {
-                e.originalEvent.stopPropagation();
-                handleMarkerClick(location);
-              }}
-            >
-              <div className="relative">
-                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:scale-110 transition-transform border-2 border-white">
-                  <Heart className="w-5 h-5 text-white fill-current" />
+          {locations.map((location) => {
+            const userShopItem = userItems.find(item => item.id === location.marker_item_id);
+            console.log('Rendering location marker:', {
+              locationId: location.id,
+              locationUuid: location.uuid,
+              markerItemId: location.marker_item_id,
+              userShopItem: userShopItem,
+              userShopItemName: userShopItem?.shop_item.name
+            });
+            return (
+              <Marker
+                key={location.uuid}
+                longitude={location.longitude}
+                latitude={location.latitude}
+                anchor="bottom"
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation();
+                  handleMarkerClick(location);
+                }}
+              >
+                <div className="relative cursor-pointer hover:scale-110 transition-transform">
+                  <CustomMarker userShopItem={userShopItem} size="sm" />
                 </div>
-                {location.memory_count > 0 && (
-                  <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold border-2 border-white">
-                    {location.memory_count}
-                  </div>
-                )}
-              </div>
-            </Marker>
-          ))}
+              </Marker>
+            );
+          })}
+
+          {/* Memory Markers with Custom Markers */}
+          {memories.map((memory) => {
+            const userShopItem = getUserItemForMemory(memory);
+            console.log('Rendering memory marker:', {
+              memoryId: memory.id,
+              memoryUuid: memory.uuid,
+              markerItemId: memory.marker_item_id,
+              userShopItem: userShopItem,
+              userShopItemName: userShopItem?.shop_item.name
+            });
+            return (
+              <Marker
+                key={`memory-${memory.uuid}`}
+                longitude={memory.location.longitude}
+                latitude={memory.location.latitude}
+                anchor="bottom"
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation();
+                  handleMarkerClick(memory.location);
+                }}
+              >
+                <div className="relative cursor-pointer hover:scale-110 transition-transform">
+                  <CustomMarker userShopItem={userShopItem} size="sm" />
+                </div>
+              </Marker>
+            );
+          })}
 
           {/* Temporary Marker for New Memory */}
           {tempMarker && (
@@ -196,14 +297,13 @@ export default function HomePage() {
         />
       )}
 
+      {/* View Memories Modal */}
       {showViewMemoriesModal && selectedLocation && (
         <ViewMemoriesModal
           isOpen={showViewMemoriesModal}
-          onClose={() => {
-            setShowViewMemoriesModal(false);
-            setSelectedLocation(null);
-          }}
+          onClose={() => setShowViewMemoriesModal(false)}
           location={selectedLocation}
+          onMemoryDeleted={handleMemoryDeleted}
         />
       )}
     </div>

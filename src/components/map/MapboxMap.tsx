@@ -48,30 +48,13 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ locations = [], onLocationClick }
   const { isAuthenticated } = useAuth();
   const mapRef = useRef<any>(null);
 
-  // Debug logging
+  // Initialize map when locations change
   useEffect(() => {
-    console.log('MapboxMap mounted');
-    console.log('Mapbox token:', process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
-    console.log('Locations:', locations);
-    console.log('Container dimensions:', {
-      width: '100%',
-      height: '100%',
-      minHeight: '400px'
-    });
-    
-    // Check if Mapbox is available
-    try {
-      const mapboxgl = require('mapbox-gl');
-      console.log('Mapbox GL available:', !!mapboxgl);
-    } catch (error) {
-      console.error('Mapbox GL not available:', error);
-    }
+    // Map initialization logic can go here if needed
   }, [locations]);
 
   useEffect(() => {
-    if (mapRef.current) {
-      console.log('Map ref available:', mapRef.current);
-    }
+    // Map ref is available when map is loaded
   }, [mapLoaded]);
 
   const handleMapClick = useCallback((event: any) => {
@@ -90,14 +73,25 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ locations = [], onLocationClick }
     setShowViewMemoriesModal(true);
   }, []);
 
-  const handleMemoryCreated = useCallback((memory: Memory) => {
+  const handleMemoryCreated = useCallback(() => {
     setShowMemoryModal(false);
     setClickedLocation(null);
     // Refresh locations if needed
-    if (onLocationClick) {
-      onLocationClick(selectedLocation!);
+    if (onLocationClick && selectedLocation) {
+      onLocationClick(selectedLocation);
     }
   }, [onLocationClick, selectedLocation]);
+
+  const handleMapLoad = useCallback(() => {
+    setMapLoaded(true);
+    setMapError(null);
+  }, []);
+
+  const handleMapError = useCallback((e: any) => {
+    console.error('Mapbox error:', e);
+    setMapLoaded(false);
+    setMapError('Không thể tải bản đồ');
+  }, []);
 
   return (
     <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
@@ -134,15 +128,8 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ locations = [], onLocationClick }
           {...viewState}
           onMove={evt => setViewState(evt.viewState)}
           onClick={handleMapClick}
-          onLoad={() => {
-            console.log('Map loaded successfully');
-            setMapLoaded(true);
-            setMapError(null);
-          }}
-          onError={(e) => {
-            console.error('Mapbox error:', e);
-            setMapError('Không thể tải bản đồ');
-          }}
+          onLoad={handleMapLoad}
+          onError={handleMapError}
           mapStyle="mapbox://styles/mapbox/streets-v12"
           mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN || 'pk.eyJ1IjoibmhvY2tvb2wxMDAyIiwiYSI6ImNtZG9zeXJiNjA1c2oya243cHpxY2FkYjUifQ.5hIXQrIc4Tgzp8Zkusf50Q'}
           style={{ width: '100%', height: '100%' }}

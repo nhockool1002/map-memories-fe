@@ -63,9 +63,39 @@
   @apply text-primary-700 px-4 py-2 rounded-lg hover:bg-primary-50 transition-all duration-200;
 }
 
-/* Form styles */
+/* Form Inputs */
 .form-input {
-  @apply w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all duration-200;
+  @apply w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors;
+}
+
+.form-input:disabled {
+  @apply bg-gray-100 text-gray-500 cursor-not-allowed;
+}
+
+.form-input::placeholder {
+  @apply text-gray-500;
+}
+
+/* Fix for input with icons */
+.form-input[class*="pl-"] {
+  @apply text-left;
+}
+
+/* Ensure proper spacing for date inputs */
+input[type="date"] {
+  @apply text-gray-900;
+  padding-left: 3rem !important;
+  padding-right: 1rem !important;
+}
+
+/* Fix for select elements */
+select.form-input {
+  @apply appearance-none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
 }
 
 .form-label {
@@ -494,4 +524,69 @@
     padding: 6px;
     margin: 0 1px;
   }
+}
+
+/* Rich Text Editor */
+.ProseMirror {
+  @apply outline-none min-h-[200px] p-4 text-gray-900;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-gray-400 float-left h-0 pointer-events-none;
+  content: attr(data-placeholder);
+}
+
+.ProseMirror h1 {
+  @apply text-2xl font-bold mb-4 text-gray-900;
+}
+
+.ProseMirror h2 {
+  @apply text-xl font-bold mb-3 text-gray-900;
+}
+
+.ProseMirror h3 {
+  @apply text-lg font-bold mb-2 text-gray-900;
+}
+
+.ProseMirror ul {
+  @apply list-disc list-inside mb-4 text-gray-900;
+}
+
+.ProseMirror ol {
+  @apply list-decimal list-inside mb-4 text-gray-900;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 border-gray-300 pl-4 italic text-gray-700 mb-4;
+}
+
+.ProseMirror strong {
+  @apply font-bold text-gray-900;
+}
+
+.ProseMirror em {
+  @apply italic text-gray-900;
+}
+
+/* Fix for SSR hydration */
+.ProseMirror:focus {
+  @apply outline-none;
+}
+
+.ProseMirror p {
+  @apply mb-2 text-gray-900;
+}
+
+.ProseMirror p:last-child {
+  @apply mb-0;
+}
+
+/* Ensure text is visible in editor */
+.ProseMirror * {
+  @apply text-gray-900;
+}
+
+/* Make placeholder more visible */
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-gray-500;
 }

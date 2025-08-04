@@ -1,154 +1,323 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Calendar, Heart, User, Tag, Image, Video } from 'lucide-react';
-import apiClient from '@/lib/api';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Trash2, AlertTriangle, Image, Video } from 'lucide-react';
 import { Location, Memory } from '@/types/api';
+import apiClient from '@/lib/api';
+import { toast } from 'react-hot-toast';
+import { format } from 'date-fns';
 
 interface ViewMemoriesModalProps {
   isOpen: boolean;
   onClose: () => void;
   location: Location;
+  onMemoryDeleted?: () => void; // Callback để reload map
 }
 
 const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
   isOpen,
   onClose,
   location,
+  onMemoryDeleted,
 }) => {
   const [memories, setMemories] = useState<Memory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
+  const [locationDeleted, setLocationDeleted] = useState(false);
 
   useEffect(() => {
-    if (isOpen && location) {
+    console.log('useEffect triggered:', { isOpen, locationUuid: location?.uuid, locationDeleted });
+    if (isOpen && location && !locationDeleted) {
+      console.log('Calling loadMemories');
       loadMemories();
     }
-  }, [isOpen, location]);
+    // Reset flag khi modal mở
+    if (isOpen) {
+      setLocationDeleted(false);
+    }
+  }, [isOpen, location, locationDeleted]);
 
   const loadMemories = async () => {
-    setIsLoading(true);
     try {
-      // Only get memories for the current user (private memories)
-      const response = await apiClient.getLocationMemories(location.uuid, { 
-        page: 1, 
-        limit: 100, 
-        is_public: false 
-      });
+      console.log('Loading memories for location:', location.uuid);
+      setLoading(true);
+      const response = await apiClient.getLocationMemories(location.uuid);
       if (response.success && response.data) {
         setMemories(response.data);
+        console.log('Memories loaded successfully:', response.data.length);
       }
     } catch (error) {
       console.error('Error loading memories:', error);
+      toast.error('Không thể tải kỷ niệm');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
+  const handleDeleteMemory = async (memory: Memory) => {
+    setMemoryToDelete(memory);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!memoryToDelete) return;
+
+    try {
+      console.log('Starting delete process for memory:', memoryToDelete.uuid);
+      console.log('Total memories in location:', memories.length);
+      console.log('Location UUID:', location.uuid);
+      
+      // Chỉ xóa memory, backend sẽ tự xử lý location
+      const memoryResponse = await apiClient.deleteMemory(memoryToDelete.uuid);
+      if (memoryResponse.success) {
+        console.log('Memory deleted successfully');
+        
+        // Nếu memory cuối cùng bị xóa, đóng modal
+        if (memories.length === 1) {
+          console.log('This is the last memory, closing modal');
+          toast.success('Đã xóa kỷ niệm thành công');
+          setLocationDeleted(true); // Set flag để tránh reload
+          onMemoryDeleted?.(); // Reload map để cập nhật location markers
+          onClose();
+          return;
+        } else {
+          console.log('Not the last memory, only deleting memory');
+          // Nếu không phải memory cuối cùng, chỉ xóa memory
+          toast.success('Đã xóa kỷ niệm thành công');
+          setMemories(prev => prev.filter(m => m.uuid !== memoryToDelete.uuid));
+          setShowDeleteConfirm(false);
+          setMemoryToDelete(null);
+        }
+      } else {
+        console.log('Memory delete failed');
+        toast.error('Không thể xóa kỷ niệm');
+      }
+    } catch (error) {
+      console.error('Error deleting memory:', error);
+      toast.error('Không thể xóa kỷ niệm');
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setMemoryToDelete(null);
+  };
+
+  // Hàm để strip HTML tags và hiển thị text thuần
+  const stripHtml = (html: string) => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+
+  // Nếu location đã bị xóa, không render gì
+  if (locationDeleted) {
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl font-bold text-white">Kỷ niệm tại địa điểm</h2>
-              <p className="text-gray-300 text-sm mt-1">{location.name}</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-200 transition-colors p-2 rounded-full hover:bg-gray-700"
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
+            onClick={onClose}
+          />
+
+          {/* Modal */}
+          <div className="flex min-h-screen items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl"
             >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-4"></div>
-                <p className="text-gray-300">Đang tải kỷ niệm...</p>
-              </div>
-            </div>
-          ) : memories.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Heart className="w-8 h-8 text-gray-400" />
-              </div>
-              <p className="text-gray-300 text-lg font-medium mb-2">Chưa có kỷ niệm nào</p>
-              <p className="text-gray-400 text-sm">Tạo kỷ niệm đầu tiên tại địa điểm này!</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {memories.map((memory) => (
-                <div key={memory.uuid} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-white">{memory.title}</h3>
-                    <div className="flex items-center space-x-2 text-sm text-gray-400">
-                      <Calendar className="w-4 h-4" />
-                      <span>{new Date(memory.visit_date).toLocaleDateString('vi-VN')}</span>
-                    </div>
+              {/* Header */}
+              <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4 rounded-t-2xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Kỷ niệm tại địa điểm</h2>
+                    <p className="text-gray-600 mt-1">{location.name}</p>
                   </div>
+                  <button
+                    onClick={onClose}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+              </div>
 
-                  <div className="prose prose-invert max-w-none mb-4">
-                    <div 
-                      className="text-gray-300"
-                      dangerouslySetInnerHTML={{ __html: memory.content }}
-                    />
+              {/* Content */}
+              <div className="p-6">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                    <span className="ml-3 text-gray-600">Đang tải kỷ niệm...</span>
                   </div>
-
-                  {/* Media Display */}
-                  {memory.media && memory.media.length > 0 && (
-                    <div className="mb-4">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {memory.media.map((media) => (
-                          <div key={media.uuid} className="relative group">
-                            {media.media_type === 'image' ? (
-                              <img
-                                src={apiClient.getMediaFileUrl(media.uuid)}
-                                alt={media.original_filename}
-                                className="w-full h-20 object-cover rounded-lg"
-                              />
-                            ) : (
-                              <video
-                                src={apiClient.getMediaFileUrl(media.uuid)}
-                                className="w-full h-20 object-cover rounded-lg"
-                                muted
-                              />
+                ) : memories.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="text-gray-400 text-6xl mb-4">📝</div>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">Chưa có kỷ niệm nào</h3>
+                    <p className="text-gray-500">Hãy tạo kỷ niệm đầu tiên tại địa điểm này</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {memories.map((memory) => (
+                      <motion.div
+                        key={memory.uuid}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-lg font-semibold text-gray-900">{memory.title}</h3>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-gray-500">
+                                  {format(new Date(memory.visit_date), 'dd/MM/yyyy')}
+                                </span>
+                                <button
+                                  onClick={() => handleDeleteMemory(memory)}
+                                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                  title="Xóa kỷ niệm"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {/* Nội dung đã strip HTML */}
+                            <div className="text-gray-700 mb-3 whitespace-pre-wrap">
+                              {stripHtml(memory.content)}
+                            </div>
+                            
+                            {/* Tags */}
+                            {memory.tags && memory.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mb-3">
+                                {memory.tags.map((tag, index) => (
+                                  <span
+                                    key={index}
+                                    className="px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded-full"
+                                  >
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
                             )}
-                            <div className="absolute bottom-1 left-1 bg-black bg-opacity-70 text-white text-xs px-1 rounded">
-                              {media.media_type === 'image' ? <Image className="w-3 h-3" /> : <Video className="w-3 h-3" />}
+                            
+                            {/* Media Display */}
+                            {memory.media && memory.media.length > 0 && (
+                              <div className="mb-3">
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">Media:</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                  {memory.media.map((media) => (
+                                    <div key={media.uuid} className="relative group">
+                                      {media.media_type === 'image' ? (
+                                        <img
+                                          src={apiClient.getMediaFileUrl(media.uuid)}
+                                          alt={media.original_filename}
+                                          className="w-full h-20 object-cover rounded-lg"
+                                        />
+                                      ) : (
+                                        <video
+                                          src={apiClient.getMediaFileUrl(media.uuid)}
+                                          className="w-full h-20 object-cover rounded-lg"
+                                          muted
+                                        />
+                                      )}
+                                      <div className="absolute bottom-1 left-1 bg-black bg-opacity-70 text-white text-xs px-1 rounded">
+                                        {media.media_type === 'image' ? (
+                                          <Image className="w-3 h-3 inline mr-1" />
+                                        ) : (
+                                          <Video className="w-3 h-3 inline mr-1" />
+                                        )}
+                                        {media.media_type}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="flex items-center justify-between text-sm text-gray-500">
+                              <span>❤️ {memory.like_count} lượt thích</span>
+                              <span>📸 {memory.media_count} ảnh/video</span>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between text-sm text-gray-400">
-                    <div className="flex items-center space-x-4">
-                      {memory.tags && memory.tags.length > 0 && (
-                        <div className="flex items-center space-x-1">
-                          <Tag className="w-4 h-4" />
-                          <span>{memory.tags.join(', ')}</span>
                         </div>
-                      )}
-                      <div className="flex items-center space-x-1">
-                        <Heart className="w-4 h-4" />
-                        <span>{memory.like_count} lượt thích</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Delete Confirmation Modal */}
+          <AnimatePresence>
+            {showDeleteConfirm && memoryToDelete && (
+              <div className="fixed inset-0 z-[70] overflow-y-auto">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
+                  onClick={cancelDelete}
+                />
+
+                <div className="flex min-h-screen items-center justify-center p-4">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                    className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 z-[71]"
+                  >
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <AlertTriangle className="w-8 h-8 text-red-600" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Xác nhận xóa</h3>
+                      <p className="text-gray-600 mb-6">
+                        Bạn có chắc chắn muốn xóa kỷ niệm "{memoryToDelete.title}"? 
+                        {memories.length === 1 && (
+                          <span className="block mt-2 text-red-600 font-medium">
+                            Đây là kỷ niệm cuối cùng, địa điểm cũng sẽ bị xóa!
+                          </span>
+                        )}
+                        Hành động này không thể hoàn tác.
+                      </p>
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={cancelDelete}
+                          className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          onClick={confirmDelete}
+                          className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                        >
+                          Xóa
+                        </button>
                       </div>
                     </div>
-                    <span className="text-xs">
-                      {new Date(memory.created_at).toLocaleDateString('vi-VN')}
-                    </span>
-                  </div>
+                  </motion.div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };
 

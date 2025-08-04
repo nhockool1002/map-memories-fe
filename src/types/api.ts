@@ -29,6 +29,18 @@ export interface User {
   email: string;
   full_name: string;
   avatar_url: string;
+  user_items?: UserShopItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserItem {
+  id: number;
+  uuid: string;
+  name: string;
+  description?: string;
+  item_type: 'memory' | 'location' | 'media';
+  item_id: number;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +81,7 @@ export interface Location {
   country: string;
   city: string;
   memory_count: number;
+  marker_item_id?: number; // Add marker_item_id to Location
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +94,7 @@ export interface CreateLocationRequest {
   address?: string;
   country?: string;
   city?: string;
+  marker_item_id?: number; // Add marker_item_id support
 }
 
 export interface UpdateLocationRequest {
@@ -112,6 +126,7 @@ export interface Memory {
   like_count: number;
   is_liked: boolean;
   media_count: number;
+  marker_item_id?: number;
   user: User;
   location: Location;
   media?: Media[];
@@ -122,10 +137,16 @@ export interface Memory {
 export interface CreateMemoryRequest {
   title: string;
   content: string;
-  location_id: number;
+  location_id?: number;
   visit_date?: string;
   is_public?: boolean;
   tags?: string[];
+  marker_item_id?: number;
+  // For auto-created locations from map clicks
+  latitude?: number;
+  longitude?: number;
+  country?: string;
+  city?: string;
 }
 
 export interface UpdateMemoryRequest {
@@ -134,6 +155,7 @@ export interface UpdateMemoryRequest {
   visit_date?: string;
   is_public?: boolean;
   tags?: string[];
+  marker_item_id?: number;
 }
 
 // Media Types
@@ -194,4 +216,30 @@ export interface MediaSearchParams {
 export interface HealthCheckResponse {
   status: string;
   database: string;
+}
+
+// Shop Item Types
+export interface ShopItem {
+  id: number;
+  uuid: string;
+  name: string;
+  description?: string;
+  image_url: string;
+  price?: number;
+  category?: string;
+  is_available: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserShopItem {
+  id: number;
+  uuid: string;
+  quantity: number;
+  shop_item: ShopItem;
+  user_id?: number;
+  acquired_at?: string;
+  is_equipped?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }

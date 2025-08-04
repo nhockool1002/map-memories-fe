@@ -6,12 +6,10 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 // Dynamic import to avoid SSR issues
 const Map = dynamic(() => import('react-map-gl').then(mod => {
-  console.log('React-map-gl module loaded:', mod);
   return { default: mod.Map };
 }), {
   ssr: false,
   loading: () => {
-    console.log('Map loading component rendered');
     return <div className="w-full h-full bg-gray-100 flex items-center justify-center">Đang tải bản đồ...</div>;
   }
 });
@@ -22,19 +20,16 @@ interface SimpleMapProps {
 
 const SimpleMap: React.FC<SimpleMapProps> = ({ className = "w-full h-full" }) => {
   const [viewState, setViewState] = useState({
-    longitude: 105.8342,
+    longitude: 300.8342,
     latitude: 21.0278,
-    zoom: 10
+    zoom: 1
   });
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('SimpleMap mounted');
-    console.log('Mapbox token:', process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
-    console.log('Token length:', process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.length);
-    console.log('Token starts with pk:', process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.startsWith('pk.'));
+    // SimpleMap initialization
   }, []);
 
   return (
@@ -73,19 +68,11 @@ const SimpleMap: React.FC<SimpleMapProps> = ({ className = "w-full h-full" }) =>
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
         style={{ width: '100%', height: '100%' }}
         onLoad={() => {
-          console.log('SimpleMap loaded successfully');
-          console.log('Map element:', document.querySelector('.mapboxgl-map'));
-          console.log('Canvas element:', document.querySelector('.mapboxgl-canvas'));
           setMapLoaded(true);
           setMapError(null);
         }}
         onError={(e) => {
           console.error('SimpleMap error:', e);
-          console.error('Error details:', {
-            type: e.type,
-            target: e.target,
-            error: e.error
-          });
           setMapError('Không thể tải bản đồ');
         }}
         attributionControl={false}

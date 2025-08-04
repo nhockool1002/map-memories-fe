@@ -16,9 +16,6 @@ export default function TestMemoryFormPage() {
   const handleMemoryCreated = (memory: Memory) => {
     setCreatedMemory(memory);
     console.log('Memory created:', memory);
-    console.log('Memory is_public:', memory.is_public);
-    console.log('Memory content:', memory.content);
-    console.log('Memory media count:', memory.media?.length || 0);
   };
 
   return (

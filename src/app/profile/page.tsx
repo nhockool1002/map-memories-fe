@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Heart, MapPin, Calendar, User, Settings, LogOut, ArrowLeft, Image, Video, Tag } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,9 +10,11 @@ import apiClient from '@/lib/api';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import Navigation from '@/components/layout/Navigation';
+import UserItemsDisplay from '@/components/ui/UserItemsDisplay';
+import RefreshUserItemsButton from '@/components/ui/RefreshUserItemsButton';
 
 export default function ProfilePage() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, userItems, refreshUserItems } = useAuth();
   const router = useRouter();
   
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -28,10 +30,12 @@ export default function ProfilePage() {
       return;
     }
 
-    loadData();
-  }, [isAuthenticated, router]);
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -54,7 +58,7 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -276,6 +280,15 @@ export default function ProfilePage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* User Items Section */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-white">Items đã lưu</h2>
+            <RefreshUserItemsButton onRefresh={refreshUserItems} />
+          </div>
+          <UserItemsDisplay userItems={userItems} className="bg-gray-800 rounded-xl border border-gray-700 p-6" />
         </div>
       </div>
     </div>

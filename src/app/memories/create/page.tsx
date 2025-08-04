@@ -50,7 +50,7 @@ export default function CreateMemoryPage() {
 
       loadLocation();
     }
-  }, [locationId, isAuthenticated]);
+  }, [locationId]);
 
   const handleSuccess = (memory: Memory) => {
     router.push(`/memories/${memory.uuid}`);

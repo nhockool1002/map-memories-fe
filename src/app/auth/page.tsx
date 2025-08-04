@@ -15,13 +15,16 @@ export default function AuthPage() {
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
+    console.log('AuthPage useEffect - isAuthenticated:', isAuthenticated);
     if (isAuthenticated) {
-      router.push('/');
+      console.log('User is authenticated, redirecting to home...');
+      window.location.href = '/';
     }
   }, [isAuthenticated, router]);
 
   const handleAuthSuccess = () => {
-    router.push('/');
+    console.log('handleAuthSuccess called, redirecting to home...');
+    window.location.href = '/';
   };
 
   return (
@@ -41,9 +44,15 @@ export default function AuthPage() {
 
         <div className="bg-gray-800 rounded-xl shadow-2xl p-8 border border-gray-700">
           {isLogin ? (
-            <LoginForm onSwitchToRegister={() => setIsLogin(false)} />
+            <LoginForm 
+              onSuccess={handleAuthSuccess}
+              onSwitchToRegister={() => setIsLogin(false)} 
+            />
           ) : (
-            <RegisterForm onSwitchToLogin={() => setIsLogin(true)} />
+            <RegisterForm 
+              onSuccess={handleAuthSuccess}
+              onSwitchToLogin={() => setIsLogin(true)} 
+            />
           )}
         </div>
 

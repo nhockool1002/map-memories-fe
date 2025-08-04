@@ -9,7 +9,6 @@ export default function TestLoginPage() {
   const { login, isLoading } = useAuth();
 
   const handleTestLogin = async () => {
-    console.log('Testing login with:', { email, password });
     const success = await login({ email, password });
     console.log('Login result:', success);
   };

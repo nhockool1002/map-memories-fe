@@ -39,12 +39,6 @@ class ApiClient {
     // Request interceptor to add auth token
     this.client.interceptors.request.use(
       (config) => {
-        console.log('Making request:', {
-          url: config.url,
-          method: config.method,
-          data: config.data
-        });
-        
         const token = this.getToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -60,11 +54,6 @@ class ApiClient {
     // Response interceptor for error handling
     this.client.interceptors.response.use(
       (response) => {
-        console.log('Response interceptor success:', {
-          url: response.config?.url,
-          status: response.status,
-          data: response.data
-        });
         return response;
       },
       (error) => {
@@ -111,10 +100,6 @@ class ApiClient {
   private async request<T>(config: AxiosRequestConfig): Promise<T> {
     try {
       const response = await this.client.request<T>(config);
-      console.log('Response received:', {
-        status: response.status,
-        data: response.data
-      });
       return response.data;
     } catch (error) {
       console.error('Request failed:', error);
@@ -138,19 +123,14 @@ class ApiClient {
   }
 
   async login(data: LoginRequest): Promise<ApiResponse<AuthResponse>> {
-    console.log('Login request data:', data);
-    
     const response = await this.request<ApiResponse<AuthResponse>>({
       method: 'POST',
       url: '/auth/login',
       data,
     });
     
-    console.log('Login response from API:', response);
-    
     if (response.success && response.data?.access_token) {
       this.setToken(response.data.access_token);
-      console.log('Token set successfully');
     }
     
     return response;
@@ -222,6 +202,13 @@ class ApiClient {
       method: 'PUT',
       url: `/locations/${uuid}`,
       data,
+    });
+  }
+
+  async deleteLocation(uuid: string): Promise<ApiResponse> {
+    return this.request<ApiResponse>({
+      method: 'DELETE',
+      url: `/admin/locations/${uuid}`,
     });
   }
 
