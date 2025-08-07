@@ -212,7 +212,7 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
                   <div className="flex flex-wrap gap-1 mb-3">
                     {memory.tags.slice(0, 3).map((tag, index) => (
                       <span
-                        key={index}
+                        key={`${tag}-${index}`}
                         className="bg-primary-100 text-primary-700 text-xs px-2 py-1 rounded-full"
                       >
                         #{tag}

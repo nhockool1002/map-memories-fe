@@ -8,9 +8,9 @@ export default function TestLoginPage() {
   const [password, setPassword] = useState('password123');
   const { login, isLoading } = useAuth();
 
-  const handleTestLogin = async () => {
-    const success = await login({ email, password });
-    console.log('Login result:', success);
+  const handleLogin = async () => {
+    const success = await login({ username: 'admin', password: 'admin123' });
+    // Silent success handling
   };
 
   return (
@@ -48,7 +48,7 @@ export default function TestLoginPage() {
           </div>
           
           <button
-            onClick={handleTestLogin}
+            onClick={handleLogin}
             disabled={isLoading}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
           >

@@ -58,7 +58,7 @@ export default function MemoriesPage() {
         setHasMore(response.pagination?.has_next || false);
       }
     } catch (error) {
-      console.error('Error loading memories:', error);
+      // Silent error handling
     } finally {
       setLoading(false);
     }

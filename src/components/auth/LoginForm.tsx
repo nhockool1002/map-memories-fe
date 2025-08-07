@@ -9,10 +9,9 @@ import Button from '@/components/ui/Button';
 import { LoginRequest } from '@/types/api';
 
 const loginSchema = z.object({
-  email: z
+  username: z
     .string()
-    .min(1, 'Email là bắt buộc')
-    .email('Email không hợp lệ'),
+    .min(1, 'Tên đăng nhập là bắt buộc'),
   password: z
     .string()
     .min(4, 'Mật khẩu phải có ít nhất 4 ký tự'),
@@ -71,16 +70,19 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToRegister }) 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Email
+            Tên đăng nhập
           </label>
-          <input
-            {...register('email')}
-            type="email"
-            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-            placeholder="Nhập email của bạn"
-          />
-          {errors.email && (
-            <p className="text-red-400 text-sm mt-1">{errors.email.message}</p>
+          <div className="relative">
+            <input
+              {...register('username')}
+              type="text"
+              className="w-full px-4 py-3 pl-12 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+              placeholder="Nhập tên đăng nhập"
+            />
+            <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          </div>
+          {errors.username && (
+            <p className="text-red-400 text-sm mt-1">{errors.username.message}</p>
           )}
         </div>
 

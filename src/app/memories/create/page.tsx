@@ -42,7 +42,7 @@ export default function CreateMemoryPage() {
             }
           }
         } catch (error) {
-          console.error('Error loading location:', error);
+          // Silent error handling
         } finally {
           setLoading(false);
         }

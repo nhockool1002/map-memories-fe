@@ -72,8 +72,7 @@ const SimpleMap: React.FC<SimpleMapProps> = ({ className = "w-full h-full" }) =>
           setMapError(null);
         }}
         onError={(e) => {
-          console.error('SimpleMap error:', e);
-          setMapError('Không thể tải bản đồ');
+          // Silent error handling
         }}
         attributionControl={false}
       />

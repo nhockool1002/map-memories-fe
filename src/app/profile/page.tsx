@@ -54,7 +54,7 @@ export default function ProfilePage() {
         setLocations(userLocations);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      // Silent error handling
     } finally {
       setLoading(false);
     }

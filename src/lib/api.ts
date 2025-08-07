@@ -25,7 +25,7 @@ import {
 
 class ApiClient {
   private client: AxiosInstance;
-  private baseURL = 'http://localhost:8222/api/v1';
+  private baseURL = 'http://localhost:8090/api/v1';
 
   constructor() {
     this.client = axios.create({
@@ -46,7 +46,6 @@ class ApiClient {
         return config;
       },
       (error) => {
-        console.error('Request interceptor error:', error);
         return Promise.reject(error);
       }
     );
@@ -57,14 +56,6 @@ class ApiClient {
         return response;
       },
       (error) => {
-        console.error('API Error:', {
-          url: error.config?.url,
-          method: error.config?.method,
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        });
-
         if (error.response?.status === 401) {
           this.clearToken();
           toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
@@ -94,6 +85,23 @@ class ApiClient {
 
   private clearToken(): void {
     Cookies.remove('access_token');
+    this.clearRefreshToken();
+  }
+
+  private getRefreshToken(): string | null {
+    return Cookies.get('refresh_token') || null;
+  }
+
+  private setRefreshToken(token: string): void {
+    Cookies.set('refresh_token', token, {
+      expires: 7, // 7 days
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    });
+  }
+
+  private clearRefreshToken(): void {
+    Cookies.remove('refresh_token');
   }
 
   // Helper method for making requests
@@ -102,63 +110,79 @@ class ApiClient {
       const response = await this.client.request<T>(config);
       return response.data;
     } catch (error) {
-      console.error('Request failed:', error);
       throw error;
     }
   }
 
   // Authentication APIs
-  async register(data: RegisterRequest): Promise<ApiResponse<AuthResponse>> {
-    const response = await this.request<ApiResponse<AuthResponse>>({
+  async register(data: RegisterRequest): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>({
       method: 'POST',
       url: '/auth/register',
       data,
     });
     
-    if (response.success && response.data?.access_token) {
-      this.setToken(response.data.access_token);
+    if (response?.access) {
+      this.setToken(response.access);
+    }
+    
+    if (response?.refresh) {
+      this.setRefreshToken(response.refresh);
     }
     
     return response;
   }
 
-  async login(data: LoginRequest): Promise<ApiResponse<AuthResponse>> {
-    const response = await this.request<ApiResponse<AuthResponse>>({
+  async login(data: LoginRequest): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>({
       method: 'POST',
-      url: '/auth/login',
+      url: '/auth/token/',
       data,
     });
     
-    if (response.success && response.data?.access_token) {
-      this.setToken(response.data.access_token);
+    if (response?.access) {
+      this.setToken(response.access);
+    }
+    
+    if (response?.refresh) {
+      this.setRefreshToken(response.refresh);
     }
     
     return response;
   }
 
-  async logout(): Promise<ApiResponse> {
+  async logout(): Promise<void> {
     try {
-      const response = await this.request<ApiResponse>({
+      const refreshToken = this.getRefreshToken();
+      if (!refreshToken) {
+        this.clearToken();
+        return;
+      }
+
+      await this.request({
         method: 'POST',
-        url: '/auth/logout',
+        url: '/auth/logout/',
+        data: {
+          refresh_token: refreshToken
+        },
       });
       this.clearToken();
-      return response;
     } catch (error) {
       this.clearToken();
       throw error;
     }
   }
 
-  async getProfile(): Promise<ApiResponse<User>> {
-    return this.request<ApiResponse<User>>({
+  async getProfile(): Promise<User> {
+    const response = await this.request<User>({
       method: 'GET',
       url: '/auth/profile',
     });
+    return response;
   }
 
-  async updateProfile(data: UpdateProfileRequest): Promise<ApiResponse<User>> {
-    return this.request<ApiResponse<User>>({
+  async updateProfile(data: UpdateProfileRequest): Promise<User> {
+    return this.request<User>({
       method: 'PUT',
       url: '/auth/profile',
       data,

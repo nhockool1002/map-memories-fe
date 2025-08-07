@@ -50,7 +50,7 @@ const UserItemsDisplay: React.FC<UserItemsDisplayProps> = ({ userItems, classNam
       <div className="grid gap-3">
         {userItems.map((item) => (
           <div
-            key={item.uuid}
+            key={item.id}
             className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
           >
             <div className="flex-shrink-0">

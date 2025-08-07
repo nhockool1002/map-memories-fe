@@ -71,7 +71,7 @@ const Navigation: React.FC = () => {
                 const Icon = item.icon;
                 return (
                   <Link
-                    key={item.href}
+                    key={item.label}
                     href={item.href}
                     className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
                       isActivePath(item.href)
@@ -208,7 +208,7 @@ const Navigation: React.FC = () => {
                   const Icon = item.icon;
                   return (
                     <Link
-                      key={item.href}
+                      key={item.label}
                       href={item.href}
                       className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors touch-target ${
                         isActivePath(item.href)

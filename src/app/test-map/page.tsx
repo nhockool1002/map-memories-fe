@@ -27,8 +27,12 @@ export default function TestMapPage() {
             mapStyle="mapbox://styles/mapbox/streets-v12"
             mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
             style={{ width: '100%', height: '100%' }}
-            onLoad={() => console.log('Map loaded!')}
-            onError={(e) => console.error('Map error:', e)}
+            onLoad={() => {
+              // Silent load handling
+            }}
+            onError={(e) => {
+              // Silent error handling
+            }}
           />
         </div>
       </div>

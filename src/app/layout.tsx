@@ -31,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi" className="dark">
+    <html lang="vi" className="dark" suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <meta name="theme-color" content="#16a34a" />
@@ -43,7 +43,7 @@ export default function RootLayout({
         <meta name="keywords" content="map, memories, địa điểm, kỷ niệm, bản đồ, travel, du lịch" />
         <meta name="next-size-adjust" />
       </head>
-      <body className="antialiased bg-gray-900 text-gray-100">
+      <body className="antialiased bg-gray-900 text-gray-100" suppressHydrationWarning>
         <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
           {children}
         </main>

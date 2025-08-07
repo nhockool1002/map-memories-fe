@@ -28,8 +28,11 @@ export interface User {
   username: string;
   email: string;
   full_name: string;
-  avatar_url: string;
+  avatar_url?: string;
   user_items?: UserShopItem[];
+  owned_items?: UserShopItem[]; // Add owned_items to match API response
+  locations?: Location[];
+  memories?: Memory[];
   created_at: string;
   updated_at: string;
 }
@@ -46,14 +49,19 @@ export interface UserItem {
 }
 
 export interface AuthResponse {
-  user: User;
-  access_token: string;
-  token_type: string;
-  expires_in: number;
+  access: string;
+  refresh: string;
+  user_id: number;
+  username: string;
+  email: string;
+  full_name: string;
+  is_admin: boolean;
+  currency: number;
+  owned_items: UserShopItem[];
 }
 
 export interface LoginRequest {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -82,6 +90,7 @@ export interface Location {
   city: string;
   memory_count: number;
   marker_item_id?: number; // Add marker_item_id to Location
+  image_base64?: string; // Add image_base64 to Location
   created_at: string;
   updated_at: string;
 }
@@ -127,6 +136,7 @@ export interface Memory {
   is_liked: boolean;
   media_count: number;
   marker_item_id?: number;
+  image_base64?: string; // Add image_base64 to Memory
   user: User;
   location: Location;
   media?: Media[];
@@ -224,7 +234,7 @@ export interface ShopItem {
   uuid: string;
   name: string;
   description?: string;
-  image_url: string;
+  image_base64: string;
   price?: number;
   category?: string;
   is_available: boolean;

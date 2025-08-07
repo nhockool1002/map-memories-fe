@@ -92,12 +92,21 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
   const watchedIsPublic = watch('is_public');
 
   // Filter user items that can be used as markers
-  const markerItems = userItems.filter(item => item.shop_item && item.shop_item.image_url);
+  const markerItems = userItems.filter(item => item.shop_item && item.shop_item.image_base64);
 
-  // Debug logging
-  console.log('MemoryForm - userItems:', userItems);
-  console.log('MemoryForm - markerItems:', markerItems);
-  console.log('MemoryForm - selectedMarker:', selectedMarker);
+  // Set default marker selection
+  useEffect(() => {
+    // If editing and memory has marker_item_id, find and select that marker
+    if (memory?.marker_item_id) {
+      const markerItem = userItems.find(item => item.id === memory.marker_item_id);
+      if (markerItem) {
+        setSelectedMarker(markerItem);
+      }
+    } else {
+      // Default to null (default marker) for new memories
+      setSelectedMarker(null);
+    }
+  }, [memory?.marker_item_id, userItems]);
 
   // Load locations
   useEffect(() => {
@@ -114,7 +123,6 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
           }
         }
       } catch (error) {
-        console.error('Error loading locations:', error);
         toast.error('Không thể tải danh sách địa điểm');
       } finally {
         setLoadingLocations(false);
@@ -166,7 +174,7 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
             setUploadedMedia(response.data);
           }
         } catch (error) {
-          console.error('Error loading media:', error);
+          // Silent error handling
         }
       };
       loadMedia();
@@ -222,7 +230,6 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
       
       toast.success(`Đã tải lên ${successfulUploads.length} file`);
     } catch (error) {
-      console.error('Error uploading files:', error);
       toast.error('Có lỗi xảy ra khi tải file');
     } finally {
       setUploading(false);
@@ -239,21 +246,9 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
         marker_item_id: selectedMarker?.id,
       };
 
-      console.log('=== DEBUG: Memory Creation ===');
-      console.log('Selected marker:', selectedMarker);
-      console.log('Selected marker ID:', selectedMarker?.id);
-      console.log('Request data before location creation:', requestData);
-
       // If we have preselectedLocation, create location first
       if (preselectedLocation) {
         try {
-          console.log('Creating location with coordinates:', {
-            lat: preselectedLocation.latitude,
-            lng: preselectedLocation.longitude,
-            country: preselectedLocation.country,
-            city: preselectedLocation.city
-          });
-
           // Create location first with marker_item_id
           const locationData = {
             name: `Địa điểm tại ${preselectedLocation.latitude.toFixed(4)}, ${preselectedLocation.longitude.toFixed(4)}`,
@@ -265,20 +260,15 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
             marker_item_id: selectedMarker?.id, // Add marker_item_id to location request
           };
 
-          console.log('Location data to send:', locationData);
           const locationResult = await apiClient.createLocation(locationData);
-          
-          console.log('Location creation result:', locationResult);
           
           if (locationResult.success && locationResult.data) {
             // Use the created location's ID
             requestData.location_id = locationResult.data.id;
-            console.log('Created location with ID:', locationResult.data.id);
           } else {
             throw new Error('Không thể tạo địa điểm');
           }
         } catch (error) {
-          console.error('Error creating location:', error);
           toast.error('Không thể tạo địa điểm. Vui lòng thử lại.');
           return;
         }
@@ -305,11 +295,7 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
       } else {
         // Create new memory (without marker_item_id)
         delete requestData.marker_item_id; // Remove marker_item_id from memory request
-        console.log('Creating memory with data:', requestData);
-        console.log('Selected marker:', selectedMarker);
-        console.log('Marker item ID was sent to location, not memory');
         result = await apiClient.createMemory(requestData);
-        console.log('Memory creation result:', result);
       }
 
       if (result.success && result.data) {
@@ -322,7 +308,6 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
         onSuccess?.(result.data);
       }
     } catch (error) {
-      console.error('Error saving memory:', error);
       toast.error(isEditing ? 'Không thể cập nhật kỷ niệm' : 'Không thể tạo kỷ niệm');
     }
   };
@@ -407,43 +392,78 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
           <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
             <label className="form-label text-lg font-semibold text-gray-800">🎯 Chọn marker cho địa điểm</label>
             <div className="space-y-3">
+              {/* Default marker option */}
+              <div className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200">
+                <input
+                  type="radio"
+                  name="marker-selection"
+                  id="default-marker"
+                  checked={selectedMarker === null}
+                  onChange={() => setSelectedMarker(null)}
+                  className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 focus:ring-primary-500"
+                />
+                <label htmlFor="default-marker" className="flex items-center space-x-3 cursor-pointer">
+                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Marker mặc định</p>
+                    <p className="text-xs text-gray-500">Marker màu xanh với icon vị trí</p>
+                  </div>
+                </label>
+              </div>
+              
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {markerItems.map((userItem) => (
                   <div
-                    key={userItem.uuid}
+                    key={userItem.id}
                     className={`relative cursor-pointer rounded-lg border-2 p-3 transition-all hover:scale-105 ${
-                      selectedMarker?.uuid === userItem.uuid
+                      selectedMarker?.id === userItem.id
                         ? 'border-primary-500 bg-primary-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                     onClick={() => {
-                      console.log('Marker clicked:', userItem);
+                      // Only allow selecting one marker at a time
                       setSelectedMarker(userItem);
                     }}
                   >
-                    <div className="flex flex-col items-center space-y-2">
-                      <div className="w-12 h-12 flex items-center justify-center">
-                        <img
-                          src={userItem.shop_item.image_url}
-                          alt={userItem.shop_item.name}
-                          className="w-full h-full object-contain"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            target.nextElementSibling?.classList.remove('hidden');
-                          }}
-                        />
-                        <div className="w-full h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white text-xs hidden">
-                          {userItem.shop_item.name.charAt(0).toUpperCase()}
+                    <input
+                      type="radio"
+                      name="marker-selection"
+                      id={`marker-${userItem.id}`}
+                      checked={selectedMarker?.id === userItem.id}
+                      onChange={() => setSelectedMarker(userItem)}
+                      className="sr-only"
+                    />
+                    <label htmlFor={`marker-${userItem.id}`} className="cursor-pointer">
+                      <div className="flex flex-col items-center space-y-2">
+                        <div className="w-12 h-12 flex items-center justify-center">
+                          {userItem.shop_item.image_base64 ? (
+                            <img
+                              src={userItem.shop_item.image_base64}
+                              alt={userItem.shop_item.name}
+                              className="w-full h-full object-contain"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-full h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white text-xs ${userItem.shop_item.image_base64 ? 'hidden' : ''}`}>
+                            {userItem.shop_item.name.charAt(0).toUpperCase()}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs font-medium text-gray-700 truncate">
+                            {userItem.shop_item.name}
+                          </p>
                         </div>
                       </div>
-                      <div className="text-center">
-                        <p className="text-xs font-medium text-gray-700 truncate">
-                          {userItem.shop_item.name}
-                        </p>
-                      </div>
-                    </div>
-                    {selectedMarker?.uuid === userItem.uuid && (
+                    </label>
+                    {selectedMarker?.id === userItem.id && (
                       <div className="absolute -top-1 -right-1 w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
                         <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -457,11 +477,17 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
                 <div className="flex items-center justify-between p-3 bg-primary-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 flex items-center justify-center">
-                      <img
-                        src={selectedMarker.shop_item.image_url}
-                        alt={selectedMarker.shop_item.name}
-                        className="w-full h-full object-contain"
-                      />
+                      {selectedMarker.shop_item.image_base64 ? (
+                        <img
+                          src={selectedMarker.shop_item.image_base64}
+                          alt={selectedMarker.shop_item.name}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white text-xs">
+                          {selectedMarker.shop_item.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-700">
@@ -481,6 +507,27 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
                   >
                     <X className="h-4 w-4" />
                   </button>
+                </div>
+              )}
+              {selectedMarker === null && (
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 flex items-center justify-center">
+                      <div className="w-full h-full bg-blue-500 rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">
+                        Sử dụng marker mặc định
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Marker màu xanh với icon vị trí
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -560,7 +607,7 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
               <div className="flex flex-wrap gap-2">
                 {watchedTags.map((tag, index) => (
                   <motion.span
-                    key={tag}
+                    key={`${tag}-${index}`}
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800"
@@ -610,7 +657,7 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-700">Files đã chọn:</h4>
                 {selectedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
                       {file.type.startsWith('image/') ? (
                         <ImageIcon className="h-5 w-5 text-blue-500" />

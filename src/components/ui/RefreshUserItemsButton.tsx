@@ -20,7 +20,7 @@ const RefreshUserItemsButton: React.FC<RefreshUserItemsButtonProps> = ({
     try {
       await onRefresh();
     } catch (error) {
-      console.error('Error refreshing user items:', error);
+      // Silent error handling
     } finally {
       setIsRefreshing(false);
     }

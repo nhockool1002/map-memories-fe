@@ -11,7 +11,7 @@ export default function DebugApiPage() {
     setResult('Đang test...');
     
     try {
-      const response = await fetch('http://localhost:8222/api/v1/auth/login', {
+      const response = await fetch('http://localhost:8090/api/v1/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -36,7 +36,7 @@ export default function DebugApiPage() {
     setResult('Đang test register...');
     
     try {
-      const response = await fetch('http://localhost:8222/api/v1/auth/register', {
+      const response = await fetch('http://localhost:8090/api/v1/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

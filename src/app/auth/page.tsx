@@ -15,16 +15,15 @@ export default function AuthPage() {
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    console.log('AuthPage useEffect - isAuthenticated:', isAuthenticated);
     if (isAuthenticated) {
-      console.log('User is authenticated, redirecting to home...');
-      window.location.href = '/';
+      // Silent redirect handling
+      router.push('/');
     }
   }, [isAuthenticated, router]);
 
   const handleAuthSuccess = () => {
-    console.log('handleAuthSuccess called, redirecting to home...');
-    window.location.href = '/';
+    // Silent success handling
+    router.push('/');
   };
 
   return (

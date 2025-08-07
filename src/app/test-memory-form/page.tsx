@@ -13,9 +13,8 @@ export default function TestMemoryFormPage() {
     lng: 106.6297
   };
 
-  const handleMemoryCreated = (memory: Memory) => {
-    setCreatedMemory(memory);
-    console.log('Memory created:', memory);
+  const handleMemoryCreated = (memory: any) => {
+    // Silent success handling
   };
 
   return (

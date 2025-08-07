@@ -88,7 +88,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ locations = [], onLocationClick }
   }, []);
 
   const handleMapError = useCallback((e: any) => {
-    console.error('Mapbox error:', e);
+    // Silent error handling
     setMapLoaded(false);
     setMapError('Không thể tải bản đồ');
   }, []);
@@ -129,7 +129,9 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ locations = [], onLocationClick }
           onMove={evt => setViewState(evt.viewState)}
           onClick={handleMapClick}
           onLoad={handleMapLoad}
-          onError={handleMapError}
+          onError={(e) => {
+            // Silent error handling
+          }}
           mapStyle="mapbox://styles/mapbox/streets-v12"
           mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN || 'pk.eyJ1IjoibmhvY2tvb2wxMDAyIiwiYSI6ImNtZG9zeXJiNjA1c2oya243cHpxY2FkYjUifQ.5hIXQrIc4Tgzp8Zkusf50Q'}
           style={{ width: '100%', height: '100%' }}
@@ -146,7 +148,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ locations = [], onLocationClick }
           {/* Location Markers */}
           {locations.map((location) => (
             <Marker
-              key={location.uuid}
+              key={location.id}
               longitude={location.longitude}
               latitude={location.latitude}
               anchor="bottom"

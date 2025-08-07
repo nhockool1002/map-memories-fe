@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, AlertTriangle, Image, Video } from 'lucide-react';
 import { Location, Memory } from '@/types/api';
@@ -28,33 +28,25 @@ const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
   const [locationDeleted, setLocationDeleted] = useState(false);
 
   useEffect(() => {
-    console.log('useEffect triggered:', { isOpen, locationUuid: location?.uuid, locationDeleted });
-    if (isOpen && location && !locationDeleted) {
-      console.log('Calling loadMemories');
-      loadMemories();
+    if (isOpen && location?.uuid && !locationDeleted) {
+      // Silent load handling
     }
-    // Reset flag khi modal mở
-    if (isOpen) {
-      setLocationDeleted(false);
-    }
-  }, [isOpen, location, locationDeleted]);
+  }, [isOpen, location?.uuid, locationDeleted]);
 
-  const loadMemories = async () => {
+  const loadMemories = useCallback(async () => {
+    if (!location?.uuid) return;
+
     try {
-      console.log('Loading memories for location:', location.uuid);
-      setLoading(true);
-      const response = await apiClient.getLocationMemories(location.uuid);
+      const response = await apiClient.getMemories();
       if (response.success && response.data) {
-        setMemories(response.data);
-        console.log('Memories loaded successfully:', response.data.length);
+        // Filter memories for this location
+        const locationMemories = response.data.filter(memory => memory.location.uuid === location.uuid);
+        setMemories(locationMemories);
       }
     } catch (error) {
-      console.error('Error loading memories:', error);
-      toast.error('Không thể tải kỷ niệm');
-    } finally {
-      setLoading(false);
+      // Silent error handling
     }
-  };
+  }, [location?.uuid]);
 
   const handleDeleteMemory = async (memory: Memory) => {
     setMemoryToDelete(memory);
@@ -65,25 +57,18 @@ const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
     if (!memoryToDelete) return;
 
     try {
-      console.log('Starting delete process for memory:', memoryToDelete.uuid);
-      console.log('Total memories in location:', memories.length);
-      console.log('Location UUID:', location.uuid);
-      
       // Chỉ xóa memory, backend sẽ tự xử lý location
       const memoryResponse = await apiClient.deleteMemory(memoryToDelete.uuid);
       if (memoryResponse.success) {
-        console.log('Memory deleted successfully');
         
         // Nếu memory cuối cùng bị xóa, đóng modal
         if (memories.length === 1) {
-          console.log('This is the last memory, closing modal');
           toast.success('Đã xóa kỷ niệm thành công');
           setLocationDeleted(true); // Set flag để tránh reload
           onMemoryDeleted?.(); // Reload map để cập nhật location markers
           onClose();
           return;
         } else {
-          console.log('Not the last memory, only deleting memory');
           // Nếu không phải memory cuối cùng, chỉ xóa memory
           toast.success('Đã xóa kỷ niệm thành công');
           setMemories(prev => prev.filter(m => m.uuid !== memoryToDelete.uuid));
@@ -91,11 +76,9 @@ const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
           setMemoryToDelete(null);
         }
       } else {
-        console.log('Memory delete failed');
         toast.error('Không thể xóa kỷ niệm');
       }
     } catch (error) {
-      console.error('Error deleting memory:', error);
       toast.error('Không thể xóa kỷ niệm');
     }
   };
@@ -172,7 +155,7 @@ const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
                   <div className="space-y-4">
                     {memories.map((memory) => (
                       <motion.div
-                        key={memory.uuid}
+                        key={memory.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="bg-gray-50 rounded-lg p-4 border border-gray-200"
@@ -205,7 +188,7 @@ const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
                               <div className="flex flex-wrap gap-2 mb-3">
                                 {memory.tags.map((tag, index) => (
                                   <span
-                                    key={index}
+                                    key={`${tag}-${index}`}
                                     className="px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded-full"
                                   >
                                     #{tag}
@@ -220,7 +203,7 @@ const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
                                 <h4 className="text-sm font-medium text-gray-700 mb-2">Media:</h4>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                                   {memory.media.map((media) => (
-                                    <div key={media.uuid} className="relative group">
+                                    <div key={media.id} className="relative group">
                                       {media.media_type === 'image' ? (
                                         <img
                                           src={apiClient.getMediaFileUrl(media.uuid)}
