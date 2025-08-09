@@ -53,7 +53,13 @@ export default function CreateMemoryPage() {
   }, [locationId]);
 
   const handleSuccess = (memory: Memory) => {
-    router.push(`/memories/${memory.uuid}`);
+    // API mới không trả về uuid, sử dụng id thay thế
+    if (memory.uuid) {
+      router.push(`/memories/${memory.uuid}`);
+    } else {
+      // Fallback to memories list page
+      router.push('/memories');
+    }
   };
 
   const handleCancel = () => {

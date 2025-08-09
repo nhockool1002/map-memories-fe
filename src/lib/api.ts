@@ -21,6 +21,9 @@ import {
   Media,
   MediaSearchParams,
   HealthCheckResponse,
+  CreateMemoryLocationRequest,
+  UpdateMemoryLocationRequest,
+  MemoryLocationResponse,
 } from '@/types/api';
 
 class ApiClient {
@@ -379,6 +382,53 @@ class ApiClient {
   // Clear current user
   clearCurrentUser(): void {
     Cookies.remove('current_user');
+  }
+
+  // Memory-Location APIs (New)
+  async createMemoryLocation(data: CreateMemoryLocationRequest): Promise<ApiResponse<MemoryLocationResponse>> {
+    return this.request<ApiResponse<MemoryLocationResponse>>({
+      method: 'POST',
+      url: '/memories/create/memory-location/',
+      data,
+    });
+  }
+
+  async getMemoryLocationDetail(memoryId: number): Promise<ApiResponse<MemoryLocationResponse>> {
+    return this.request<ApiResponse<MemoryLocationResponse>>({
+      method: 'GET',
+      url: `/memories/detail/memory-location/${memoryId}/`,
+    });
+  }
+
+  async updateMemoryLocation(memoryId: number, data: UpdateMemoryLocationRequest): Promise<ApiResponse<MemoryLocationResponse>> {
+    return this.request<ApiResponse<MemoryLocationResponse>>({
+      method: 'PUT',
+      url: `/memories/update/memory-location/${memoryId}/`,
+      data,
+    });
+  }
+
+  async deleteMemoryLocation(memoryId: number): Promise<ApiResponse> {
+    return this.request<ApiResponse>({
+      method: 'DELETE',
+      url: `/memories/delete/memory-location/${memoryId}/`,
+    });
+  }
+
+  // Helper method to convert file to base64
+  async fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Failed to convert file to base64'));
+        }
+      };
+      reader.onerror = () => reject(reader.error);
+    });
   }
 }
 

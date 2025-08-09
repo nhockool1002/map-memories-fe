@@ -20,7 +20,23 @@ export default function HomePage() {
   const [localLocations, setLocalLocations] = useState<Location[]>([]);
   const [localMemories, setLocalMemories] = useState<Memory[]>([]);
   
+  // Clear local state when user logs out
   useEffect(() => {
+    if (!isAuthenticated) {
+      // Clear all local state when user logs out
+      setLocalUserItems([]);
+      setLocalLocations([]);
+      setLocalMemories([]);
+      setTempMarker(null);
+      setShowMemoryModal(false);
+      setShowViewMemoriesModal(false);
+      setSelectedLocation(null);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
     if (userItems.length === 0) {
       const storedItems = localStorage.getItem('user_items');
       if (storedItems) {
@@ -33,7 +49,7 @@ export default function HomePage() {
       }
     }
     
-    // Load locations and memories from localStorage if not available
+    // Load locations and memories from localStorage if not available - Only for authenticated users
     if (locations.length === 0) {
       const storedLocations = localStorage.getItem('locations');
       if (storedLocations) {
@@ -57,29 +73,29 @@ export default function HomePage() {
         }
       }
     }
-  }, [userItems.length, locations.length, memories.length]);
+  }, [isAuthenticated, userItems.length, locations.length, memories.length]);
   
-  // Save locations and memories to localStorage when they change
+  // Save locations and memories to localStorage when they change - Only for authenticated users
   useEffect(() => {
-    if (locations.length > 0) {
+    if (isAuthenticated && locations.length > 0) {
       localStorage.setItem('locations', JSON.stringify(locations));
     }
-  }, [locations]);
+  }, [isAuthenticated, locations]);
   
   useEffect(() => {
-    if (memories.length > 0) {
+    if (isAuthenticated && memories.length > 0) {
       localStorage.setItem('memories', JSON.stringify(memories));
     }
-  }, [memories]);
+  }, [isAuthenticated, memories]);
   
-  // Use localUserItems if userItems is empty
-  const effectiveUserItems = userItems.length > 0 ? userItems : localUserItems;
-  const effectiveLocations = locations.length > 0 ? locations : localLocations;
-  const effectiveMemories = memories.length > 0 ? memories : localMemories;
+  // Use localUserItems if userItems is empty - Only for authenticated users
+  const effectiveUserItems = isAuthenticated ? (userItems.length > 0 ? userItems : localUserItems) : [];
+  const effectiveLocations = isAuthenticated ? (locations.length > 0 ? locations : localLocations) : [];
+  const effectiveMemories = isAuthenticated ? (memories.length > 0 ? memories : localMemories) : [];
   
-  // Create sample data if no data available
+  // Create sample data if no data available - Only for authenticated users
   useEffect(() => {
-    if (effectiveUserItems.length > 0 && effectiveLocations.length === 0 && effectiveMemories.length === 0) {
+    if (isAuthenticated && effectiveUserItems.length > 0 && effectiveLocations.length === 0 && effectiveMemories.length === 0) {
       // Create sample locations based on userItems
       const sampleLocations: Location[] = effectiveUserItems.map((item, index) => ({
         id: index + 1,
@@ -133,7 +149,7 @@ export default function HomePage() {
       localStorage.setItem('locations', JSON.stringify(sampleLocations));
       localStorage.setItem('memories', JSON.stringify(sampleMemories));
     }
-  }, [effectiveUserItems.length, effectiveLocations.length, effectiveMemories.length]);
+  }, [isAuthenticated, effectiveUserItems.length, effectiveLocations.length, effectiveMemories.length]);
   
   const [viewState, setViewState] = useState({
     longitude: 106.6297, // Hồ Chí Minh City
@@ -214,6 +230,11 @@ export default function HomePage() {
     }, []);
 
     const handleMapClick = useCallback((event: any) => {
+      if (!isAuthenticated) {
+        alert('Vui lòng đăng nhập để tạo kỷ niệm');
+        return;
+      }
+
       const { lngLat } = event;
       setTempMarker({ lat: lngLat.lat, lng: lngLat.lng });
 
@@ -258,7 +279,7 @@ export default function HomePage() {
           });
           setShowMemoryModal(true);
         });
-    }, [mapboxAccessToken]);
+    }, [mapboxAccessToken, isAuthenticated]);
 
     const handleLocationClick = useCallback((location: Location) => {
       setSelectedLocation(location);
@@ -321,14 +342,17 @@ export default function HomePage() {
             <NavigationControl position="top-right" />
             <GeolocateControl position="top-left" />
 
-            {/* Existing Location Markers */}
-            {effectiveLocations && effectiveLocations.length > 0 && effectiveLocations.map((location) => {
+            {/* Existing Location Markers - Only show if user is authenticated */}
+            {isAuthenticated && effectiveLocations && effectiveLocations.length > 0 && effectiveLocations.map((location) => {
                 return (
                   <Marker
                     key={location.id}
                     latitude={parseFloat(location.latitude.toString())}
                     longitude={parseFloat(location.longitude.toString())}
-                    onClick={() => handleLocationClick(location)}
+                    onClick={(e) => {
+                      e.originalEvent.stopPropagation();
+                      handleLocationClick(location);
+                    }}
                   >
                     <CustomMarker 
                       imageBase64={location.image_base64}
@@ -338,8 +362,8 @@ export default function HomePage() {
                 );
               })}
 
-              {/* Memory Markers */}
-              {effectiveMemories && effectiveMemories.length > 0 && effectiveMemories.map((memory) => {
+              {/* Memory Markers - Only show if user is authenticated */}
+              {isAuthenticated && effectiveMemories && effectiveMemories.length > 0 && effectiveMemories.map((memory) => {
                 const memoryImageBase64 = memory.image_base64 || memory.location.image_base64;
                 
                 return (
@@ -347,7 +371,10 @@ export default function HomePage() {
                     key={memory.id}
                     latitude={parseFloat(memory.location.latitude.toString())}
                     longitude={parseFloat(memory.location.longitude.toString())}
-                    onClick={() => handleLocationClick(memory.location)}
+                    onClick={(e) => {
+                      e.originalEvent.stopPropagation();
+                      handleLocationClick(memory.location);
+                    }}
                   >
                     <CustomMarker 
                       imageBase64={memoryImageBase64}
@@ -357,8 +384,8 @@ export default function HomePage() {
                 );
               })}
 
-              {/* Temporary Marker for New Memory */}
-              {tempMarker && (
+              {/* Temporary Marker for New Memory - Only show if user is authenticated */}
+              {isAuthenticated && tempMarker && (
                 <Marker
                   longitude={tempMarker.lng}
                   latitude={tempMarker.lat}
@@ -400,8 +427,8 @@ export default function HomePage() {
               <div className="flex items-center space-x-3">
                 <Info className="w-5 h-5 text-blue-500" />
                 <div>
-                  <p className="text-gray-700 font-medium">Đăng nhập để tạo kỷ niệm</p>
-                  <p className="text-gray-500 text-sm">Click vào bản đồ để thêm kỷ niệm mới</p>
+                  <p className="text-gray-700 font-medium">Đăng nhập để xem và tạo kỷ niệm</p>
+                  <p className="text-gray-500 text-sm">Chỉ người dùng đã đăng nhập mới có thể xem và tạo kỷ niệm</p>
                 </div>
               </div>
             </div>
@@ -409,6 +436,7 @@ export default function HomePage() {
         </div>
 
         {/* Modals */}
+        {/* Memory Creation Modal */}
         {showMemoryModal && tempMarker && (
           <MemoryModal
             isOpen={showMemoryModal}
@@ -416,8 +444,21 @@ export default function HomePage() {
               setShowMemoryModal(false);
               setTempMarker(null);
             }}
-            location={tempMarker}
-            onMemoryCreated={handleMemoryCreated}
+            location={{
+              id: -1,
+              uuid: '',
+              name: `Địa điểm tại ${tempMarker.lat.toFixed(4)}, ${tempMarker.lng.toFixed(4)}`,
+              description: `Vị trí được chọn tại tọa độ ${tempMarker.lat.toFixed(4)}, ${tempMarker.lng.toFixed(4)}`,
+              latitude: tempMarker.lat,
+              longitude: tempMarker.lng,
+              address: '',
+              country: 'Việt Nam',
+              city: 'Hà Nội',
+              memory_count: 0,
+              created_at: '',
+              updated_at: '',
+            }}
+            onSuccess={handleMemoryCreated}
           />
         )}
 

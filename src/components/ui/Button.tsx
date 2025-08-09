@@ -2,7 +2,20 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from './LoadingSpinner';
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 
+  'onAnimationStart' | 'onAnimationComplete' | 'onAnimationIteration' |
+  'onDragStart' | 'onDragEnd' | 'onDrag' |
+  'onPointerDown' | 'onPointerUp' | 'onPointerMove' |
+  'onPointerEnter' | 'onPointerLeave' |
+  'onHoverStart' | 'onHoverEnd' |
+  'onTap' | 'onTapStart' | 'onTapCancel' |
+  'onPan' | 'onPanStart' | 'onPanEnd' |
+  'onPanSessionStart' | 'onPanSessionEnd' |
+  'onLayoutMeasure' | 'onLayoutAnimationComplete' |
+  'onViewportEnter' | 'onViewportLeave' |
+  'onUpdate' | 'onUpdateLatest' |
+  'onDragTransitionEnd' | 'onAnimationStart' | 'onAnimationComplete' | 'onAnimationIteration'
+> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;

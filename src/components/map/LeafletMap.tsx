@@ -4,9 +4,10 @@ import React, { useCallback, useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import { Icon, LatLng } from 'leaflet';
 import { motion } from 'framer-motion';
-import { MapPin, Plus, Heart, Calendar, User } from 'lucide-react';
+import { MapPin, Plus, Heart, Calendar, User, Edit } from 'lucide-react';
 import { Location, Memory } from '@/types/api';
 import Button from '@/components/ui/Button';
+import MemoryModal from '@/components/memories/MemoryModal';
 import { format } from 'date-fns';
 
 // Fix for default markers in Next.js
@@ -42,6 +43,7 @@ interface LeafletMapProps {
   onLocationClick?: (location: Location) => void;
   onMapClick?: (lat: number, lng: number) => void;
   onAddMemory?: (location: Location) => void;
+  onMemoryUpdated?: (memory: Memory) => void;
   newLocationMarker?: { lat: number; lng: number } | null;
   className?: string;
 }
@@ -68,10 +70,13 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
   onLocationClick,
   onMapClick,
   onAddMemory,
+  onMemoryUpdated,
   newLocationMarker,
   className = '',
 }) => {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleLocationClick = useCallback((location: Location) => {
     setSelectedLocation(location);
@@ -79,8 +84,28 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
   }, [onLocationClick]);
 
   const handleAddMemory = useCallback((location: Location) => {
+    setSelectedLocation(location);
+    setSelectedMemory(null);
+    setIsModalOpen(true);
     onAddMemory?.(location);
   }, [onAddMemory]);
+
+  const handleEditMemory = useCallback((memory: Memory) => {
+    setSelectedLocation(memory.location);
+    setSelectedMemory(memory);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleModalSuccess = useCallback((memory: Memory) => {
+    onMemoryUpdated?.(memory);
+    setIsModalOpen(false);
+  }, [onMemoryUpdated]);
+
+  const handleModalClose = useCallback(() => {
+    setIsModalOpen(false);
+    setSelectedLocation(null);
+    setSelectedMemory(null);
+  }, []);
 
   return (
     <div className={`relative h-full w-full ${className}`}>
@@ -194,9 +219,9 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
                   </div>
                   <div className="flex items-center mb-1">
                     <Calendar className="h-3 w-3 mr-1" />
-                                         <span>
-                       {format(new Date(memory.visit_date), 'dd/MM/yyyy')}
-                     </span>
+                    <span>
+                      {format(new Date(memory.visit_date), 'dd/MM/yyyy')}
+                    </span>
                   </div>
                   <div className="flex items-center mb-1">
                     <User className="h-3 w-3 mr-1" />
@@ -226,14 +251,25 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
                   </div>
                 )}
 
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => handleLocationClick(memory.location)}
-                  fullWidth
-                >
-                  Xem kỷ niệm
-                </Button>
+                <div className="flex space-x-2">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => handleEditMemory(memory)}
+                    className="flex-1"
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    Chỉnh sửa
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleLocationClick(memory.location)}
+                    className="flex-1"
+                  >
+                    Xem chi tiết
+                  </Button>
+                </div>
               </motion.div>
             </Popup>
           </Marker>
@@ -262,14 +298,42 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
                   size="sm"
                   variant="primary"
                   fullWidth
+                  onClick={() => {
+                    const tempLocation: Location = {
+                      id: -1,
+                      uuid: '',
+                      name: `Địa điểm tại ${newLocationMarker.lat.toFixed(4)}, ${newLocationMarker.lng.toFixed(4)}`,
+                      description: `Vị trí được chọn tại tọa độ ${newLocationMarker.lat.toFixed(4)}, ${newLocationMarker.lng.toFixed(4)}`,
+                      latitude: newLocationMarker.lat,
+                      longitude: newLocationMarker.lng,
+                      address: '',
+                      country: 'Việt Nam',
+                      city: 'Hà Nội',
+                      memory_count: 0,
+                      created_at: '',
+                      updated_at: '',
+                    };
+                    setSelectedLocation(tempLocation);
+                    setSelectedMemory(null);
+                    setIsModalOpen(true);
+                  }}
                 >
-                  Tạo địa điểm
+                  Tạo kỷ niệm
                 </Button>
               </motion.div>
             </Popup>
           </Marker>
         )}
       </MapContainer>
+
+      {/* Memory Modal */}
+      <MemoryModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        location={selectedLocation || undefined}
+        memory={selectedMemory || undefined}
+        onSuccess={handleModalSuccess}
+      />
     </div>
   );
 };

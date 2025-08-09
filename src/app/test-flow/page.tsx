@@ -16,7 +16,7 @@ export default function TestFlowPage() {
     
     try {
       const success = await login({
-        email: 'test@example.com',
+        username: 'test',
         password: 'password123'
       });
       

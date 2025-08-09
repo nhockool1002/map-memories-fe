@@ -24,6 +24,7 @@ interface MapProps {
   onLocationClick?: (location: Location) => void;
   onMapClick?: (lat: number, lng: number) => void;
   onAddMemory?: (location: Location) => void;
+  onMemoryUpdated?: (memory: Memory) => void;
   newLocationMarker?: { lat: number; lng: number } | null;
   className?: string;
   height?: string;
@@ -37,6 +38,7 @@ const Map: React.FC<MapProps> = ({
   onLocationClick,
   onMapClick,
   onAddMemory,
+  onMemoryUpdated,
   newLocationMarker,
   className = '',
   height = 'h-96',
@@ -51,6 +53,7 @@ const Map: React.FC<MapProps> = ({
         onLocationClick={onLocationClick}
         onMapClick={onMapClick}
         onAddMemory={onAddMemory}
+        onMemoryUpdated={onMemoryUpdated}
         newLocationMarker={newLocationMarker}
       />
     </MapContainer>

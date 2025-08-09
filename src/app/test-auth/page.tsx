@@ -6,12 +6,12 @@ import apiClient from '@/lib/api';
 
 export default function TestAuthPage() {
   const { login, isAuthenticated, user } = useAuth();
-  const [email, setEmail] = useState('test2@example.com');
+  const [username, setUsername] = useState('test2');
   const [password, setPassword] = useState('123456');
   const [testResult, setTestResult] = useState<string>('');
 
   const handleLogin = async () => {
-    const success = await login({ email, password });
+    const success = await login({ username, password });
     if (success) {
       setTestResult('Đăng nhập thành công!');
     } else {
@@ -50,11 +50,11 @@ export default function TestAuthPage() {
       
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Email:</label>
+          <label className="block text-sm font-medium mb-1">Username:</label>
           <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             className="w-full px-3 py-2 border rounded"
           />
         </div>

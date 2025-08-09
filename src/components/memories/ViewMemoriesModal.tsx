@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, AlertTriangle, Image, Video } from 'lucide-react';
-import { Location, Memory } from '@/types/api';
+import { X, Trash2, AlertTriangle, Image, Video, MapPin, Calendar, User, Heart, Eye, EyeOff } from 'lucide-react';
+import { Location, Memory, MemoryLocationResponse } from '@/types/api';
 import apiClient from '@/lib/api';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -12,7 +12,7 @@ interface ViewMemoriesModalProps {
   isOpen: boolean;
   onClose: () => void;
   location: Location;
-  onMemoryDeleted?: () => void; // Callback để reload map
+  onMemoryDeleted?: () => void;
 }
 
 const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
@@ -21,34 +21,117 @@ const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
   location,
   onMemoryDeleted,
 }) => {
-  const [memories, setMemories] = useState<Memory[]>([]);
+  const [memories, setMemories] = useState<MemoryLocationResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
+  const [memoryToDelete, setMemoryToDelete] = useState<MemoryLocationResponse | null>(null);
   const [locationDeleted, setLocationDeleted] = useState(false);
 
   useEffect(() => {
-    if (isOpen && location?.uuid && !locationDeleted) {
-      // Silent load handling
+    if (isOpen && location && !locationDeleted) {
+      loadMemories();
     }
-  }, [isOpen, location?.uuid, locationDeleted]);
+  }, [isOpen, location, locationDeleted]);
 
   const loadMemories = useCallback(async () => {
-    if (!location?.uuid) return;
+    if (!location) return;
 
     try {
+      setLoading(true);
+      console.log('Loading memories for location:', location);
+      
+      // Try to get memories directly for this location using location UUID first
+      if (location.uuid) {
+        try {
+          const locationMemoriesResponse = await apiClient.getLocationMemories(location.uuid);
+          console.log('Location memories response:', locationMemoriesResponse);
+          
+          if (locationMemoriesResponse.success && locationMemoriesResponse.data && locationMemoriesResponse.data.length > 0) {
+            // Get detailed info for each memory using API 2.2
+            const detailedMemories = await Promise.all(
+              locationMemoriesResponse.data.map(async (memory) => {
+                try {
+                  const detailResponse = await apiClient.getMemoryLocationDetail(memory.id);
+                  console.log('Memory detail response:', detailResponse);
+                  return detailResponse.data;
+                } catch (error) {
+                  console.error(`Error fetching memory detail for ${memory.id}:`, error);
+                  return null;
+                }
+              })
+            );
+
+            const filteredMemories = detailedMemories.filter(Boolean) as MemoryLocationResponse[];
+            console.log('Final memories:', filteredMemories);
+            setMemories(filteredMemories);
+            return;
+          } else {
+            console.log('No location memories found or empty response');
+          }
+        } catch (error) {
+          console.error('Error fetching location memories:', error);
+        }
+      }
+      
+      // Fallback: try to get all memories and filter by location
       const response = await apiClient.getMemories();
-      if (response.success && response.data) {
-        // Filter memories for this location
-        const locationMemories = response.data.filter(memory => memory.location.uuid === location.uuid);
-        setMemories(locationMemories);
+      console.log('API response:', response);
+      
+      if (response.success && response.data && response.data.length > 0) {
+        // Filter memories for this location and get detailed info
+        const locationMemories = response.data.filter(memory => {
+          console.log('Memory location:', memory.location, 'Target location:', location);
+          // Check multiple ways to match location
+          const locationMatch = 
+            (location.uuid && memory.location.uuid === location.uuid) ||
+            (location.id && memory.location.id === location.id) ||
+            (location.latitude && memory.location.latitude && 
+             Math.abs(parseFloat(location.latitude.toString()) - parseFloat(memory.location.latitude.toString())) < 0.0001 &&
+             location.longitude && memory.location.longitude &&
+             Math.abs(parseFloat(location.longitude.toString()) - parseFloat(memory.location.longitude.toString())) < 0.0001);
+          
+          console.log('Location match:', locationMatch);
+          return locationMatch;
+        });
+        
+        console.log('Filtered memories:', locationMemories);
+        
+        if (locationMemories.length > 0) {
+          // Get detailed info for each memory using API 2.2
+          const detailedMemories = await Promise.all(
+            locationMemories.map(async (memory) => {
+              try {
+                const detailResponse = await apiClient.getMemoryLocationDetail(memory.id);
+                console.log('Memory detail response:', detailResponse);
+                return detailResponse.data;
+              } catch (error) {
+                console.error(`Error fetching memory detail for ${memory.id}:`, error);
+                return null;
+              }
+            })
+          );
+
+          const filteredMemories = detailedMemories.filter(Boolean) as MemoryLocationResponse[];
+          console.log('Final memories:', filteredMemories);
+          setMemories(filteredMemories);
+        } else {
+          console.log('No memories found for this location');
+          setMemories([]);
+        }
+      } else {
+        console.log('No memories found or API error');
+        setMemories([]);
       }
     } catch (error) {
-      // Silent error handling
+      console.error('Error loading memories:', error);
+      toast.error('Không thể tải kỷ niệm');
+      setMemories([]);
+    } finally {
+      setLoading(false);
     }
-  }, [location?.uuid]);
+  }, [location]);
 
-  const handleDeleteMemory = async (memory: Memory) => {
+  const handleDeleteMemory = async (memory: MemoryLocationResponse) => {
     setMemoryToDelete(memory);
     setShowDeleteConfirm(true);
   };
@@ -57,21 +140,19 @@ const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
     if (!memoryToDelete) return;
 
     try {
-      // Chỉ xóa memory, backend sẽ tự xử lý location
-      const memoryResponse = await apiClient.deleteMemory(memoryToDelete.uuid);
-      if (memoryResponse.success) {
+      const response = await apiClient.deleteMemoryLocation(memoryToDelete.id);
+      if (response.success) {
+        toast.success('Đã xóa kỷ niệm thành công');
         
         // Nếu memory cuối cùng bị xóa, đóng modal
         if (memories.length === 1) {
-          toast.success('Đã xóa kỷ niệm thành công');
-          setLocationDeleted(true); // Set flag để tránh reload
-          onMemoryDeleted?.(); // Reload map để cập nhật location markers
+          setLocationDeleted(true);
+          onMemoryDeleted?.();
           onClose();
           return;
         } else {
           // Nếu không phải memory cuối cùng, chỉ xóa memory
-          toast.success('Đã xóa kỷ niệm thành công');
-          setMemories(prev => prev.filter(m => m.uuid !== memoryToDelete.uuid));
+          setMemories(prev => prev.filter(m => m.id !== memoryToDelete.id));
           setShowDeleteConfirm(false);
           setMemoryToDelete(null);
         }
@@ -79,6 +160,7 @@ const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
         toast.error('Không thể xóa kỷ niệm');
       }
     } catch (error) {
+      console.error('Error deleting memory:', error);
       toast.error('Không thể xóa kỷ niệm');
     }
   };
@@ -120,14 +202,22 @@ const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
-              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl"
+              className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl"
             >
               {/* Header */}
               <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4 rounded-t-2xl">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <h2 className="text-2xl font-bold text-gray-900">Kỷ niệm tại địa điểm</h2>
-                    <p className="text-gray-600 mt-1">{location.name}</p>
+                    <div className="flex items-center space-x-4 mt-2">
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="h-4 w-4 text-gray-500" />
+                        <span className="text-gray-600 font-medium">{location.name}</span>
+                      </div>
+                      {location.address && (
+                        <span className="text-gray-500 text-sm">{location.address}</span>
+                      )}
+                    </div>
                   </div>
                   <button
                     onClick={onClose}
@@ -152,88 +242,131 @@ const ViewMemoriesModal: React.FC<ViewMemoriesModalProps> = ({
                     <p className="text-gray-500">Hãy tạo kỷ niệm đầu tiên tại địa điểm này</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {memories.map((memory) => (
                       <motion.div
                         key={memory.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                        className="bg-gray-50 rounded-xl p-6 border border-gray-200 shadow-sm"
                       >
-                        <div className="flex items-start justify-between">
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="text-lg font-semibold text-gray-900">{memory.title}</h3>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm text-gray-500">
-                                  {format(new Date(memory.visit_date), 'dd/MM/yyyy')}
-                                </span>
-                                <button
-                                  onClick={() => handleDeleteMemory(memory)}
-                                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                                  title="Xóa kỷ niệm"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h3 className="text-xl font-semibold text-gray-900">{memory.title}</h3>
+                              {memory.is_public ? (
+                                <Eye className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <EyeOff className="h-4 w-4 text-gray-500" />
+                              )}
                             </div>
                             
-                            {/* Nội dung đã strip HTML */}
-                            <div className="text-gray-700 mb-3 whitespace-pre-wrap">
-                              {stripHtml(memory.content)}
-                            </div>
-                            
-                            {/* Tags */}
-                            {memory.tags && memory.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-2 mb-3">
-                                {memory.tags.map((tag, index) => (
-                                  <span
-                                    key={`${tag}-${index}`}
-                                    className="px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded-full"
-                                  >
-                                    #{tag}
-                                  </span>
-                                ))}
+                            {/* Meta information */}
+                            <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
+                              <div className="flex items-center space-x-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>{format(new Date(memory.visit_date), 'dd/MM/yyyy')}</span>
                               </div>
-                            )}
-                            
-                            {/* Media Display */}
-                            {memory.media && memory.media.length > 0 && (
-                              <div className="mb-3">
-                                <h4 className="text-sm font-medium text-gray-700 mb-2">Media:</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                  {memory.media.map((media) => (
-                                    <div key={media.id} className="relative group">
-                                      {media.media_type === 'image' ? (
-                                        <img
-                                          src={apiClient.getMediaFileUrl(media.uuid)}
-                                          alt={media.original_filename}
-                                          className="w-full h-20 object-cover rounded-lg"
-                                        />
-                                      ) : (
-                                        <video
-                                          src={apiClient.getMediaFileUrl(media.uuid)}
-                                          className="w-full h-20 object-cover rounded-lg"
-                                          muted
-                                        />
-                                      )}
-                                      <div className="absolute bottom-1 left-1 bg-black bg-opacity-70 text-white text-xs px-1 rounded">
-                                        {media.media_type === 'image' ? (
-                                          <Image className="w-3 h-3 inline mr-1" />
-                                        ) : (
-                                          <Video className="w-3 h-3 inline mr-1" />
-                                        )}
-                                        {media.media_type}
-                                      </div>
+                              <div className="flex items-center space-x-1">
+                                <Heart className="h-3 w-3" />
+                                <span>{memory.like_count} lượt thích</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Image className="h-3 w-3" />
+                                <span>{memory.image_count} ảnh</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <button
+                            onClick={() => handleDeleteMemory(memory)}
+                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
+                            title="Xóa kỷ niệm"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="text-gray-700 mb-4 whitespace-pre-wrap leading-relaxed">
+                          {stripHtml(memory.content)}
+                        </div>
+                        
+                        {/* Tags */}
+                        {memory.tags && memory.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {memory.tags.map((tag, index) => (
+                              <span
+                                key={`${tag}-${index}`}
+                                className="px-3 py-1 bg-primary-100 text-primary-700 text-sm rounded-full font-medium"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Images */}
+                        {memory.images && memory.images.length > 0 && (
+                          <div className="mb-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                              <Image className="h-4 w-4 mr-2" />
+                              Hình ảnh ({memory.images.length})
+                            </h4>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                              {memory.images.map((image, index) => (
+                                <div key={index} className="relative group">
+                                  <img
+                                    src={image.image_base64}
+                                    alt={image.caption || `Hình ảnh ${index + 1}`}
+                                    className="w-full h-32 object-cover rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                                  />
+                                  {image.caption && (
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white text-xs p-2 rounded-b-lg">
+                                      {image.caption}
                                     </div>
-                                  ))}
+                                  )}
                                 </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Location details */}
+                        <div className="bg-white rounded-lg p-4 border border-gray-200">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                            <MapPin className="h-4 w-4 mr-2" />
+                            Thông tin địa điểm
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <span className="text-gray-500">Tên:</span>
+                              <span className="ml-2 font-medium">{memory.location.name}</span>
+                            </div>
+                            {memory.location.description && (
+                              <div>
+                                <span className="text-gray-500">Mô tả:</span>
+                                <span className="ml-2">{memory.location.description}</span>
                               </div>
                             )}
-                            
-                            <div className="flex items-center justify-between text-sm text-gray-500">
-                              <span>❤️ {memory.like_count} lượt thích</span>
-                              <span>📸 {memory.media_count} ảnh/video</span>
+                            <div>
+                              <span className="text-gray-500">Địa chỉ:</span>
+                              <span className="ml-2">{memory.location.address || 'Chưa có'}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Thành phố:</span>
+                              <span className="ml-2">{memory.location.city || 'Chưa có'}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Quốc gia:</span>
+                              <span className="ml-2">{memory.location.country || 'Chưa có'}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Tọa độ:</span>
+                              <span className="ml-2 font-mono text-xs">
+                                {memory.location.latitude}, {memory.location.longitude}
+                              </span>
                             </div>
                           </div>
                         </div>

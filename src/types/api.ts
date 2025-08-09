@@ -253,3 +253,87 @@ export interface UserShopItem {
   created_at?: string;
   updated_at?: string;
 }
+
+// Memory-Location API Types (New)
+export interface MemoryImage {
+  id?: number;
+  image_base64: string;
+  caption?: string;
+  order?: number;
+  created_at?: string;
+}
+
+export interface CreateMemoryLocationRequest {
+  // Location fields
+  location_name: string;
+  location_description?: string;
+  latitude: string;
+  longitude: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  marker_item?: number;
+  
+  // Memory fields
+  title: string;
+  content: string;
+  visit_date?: string;
+  is_public?: boolean;
+  tags?: string[];
+  
+  // Images
+  images?: MemoryImage[];
+}
+
+export interface UpdateMemoryLocationRequest {
+  // Location fields (all optional)
+  location_name?: string;
+  location_description?: string;
+  latitude?: string;
+  longitude?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  marker_item?: number;
+  
+  // Memory fields (all optional)
+  title?: string;
+  content?: string;
+  visit_date?: string;
+  is_public?: boolean;
+  tags?: string[];
+  
+  // Images
+  images?: MemoryImage[];
+}
+
+export interface MemoryLocationResponse {
+  id: number;
+  user: number;
+  location: {
+    id: number;
+    name: string;
+    description: string;
+    latitude: string;
+    longitude: string;
+    address: string;
+    city: string;
+    country: string;
+    marker_item?: number;
+    image_base64?: string;
+    created_at: string;
+    updated_at: string;
+  };
+  title: string;
+  content: string;
+  visit_date: string;
+  is_public: boolean;
+  tags: string[];
+  like_count: number;
+  is_liked_by_user: boolean;
+  image_base64?: string;
+  images: MemoryImage[];
+  image_count: number;
+  created_at: string;
+  updated_at: string;
+}

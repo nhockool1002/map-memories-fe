@@ -6,7 +6,7 @@ import { MapPin, Plus, Heart } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Location, Memory } from '@/types/api';
 import MemoryModal from '@/components/memories/MemoryModal';
-import ViewMemoriesModal from '@/components/memories/ViewMemoriesModal';
+import MarkerDetailModal from '@/components/memories/MarkerDetailModal';
 import { useAuth } from '@/hooks/useAuth';
 
 // Dynamic import to avoid SSR issues
@@ -41,7 +41,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ locations = [], onLocationClick }
   
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [showMemoryModal, setShowMemoryModal] = useState(false);
-  const [showViewMemoriesModal, setShowViewMemoriesModal] = useState(false);
+  const [showMarkerDetailModal, setShowMarkerDetailModal] = useState(false);
   const [clickedLocation, setClickedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -70,7 +70,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ locations = [], onLocationClick }
 
   const handleMarkerClick = useCallback((location: Location) => {
     setSelectedLocation(location);
-    setShowViewMemoriesModal(true);
+    setShowMarkerDetailModal(true);
   }, []);
 
   const handleMemoryCreated = useCallback(() => {
@@ -202,16 +202,29 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ locations = [], onLocationClick }
             setShowMemoryModal(false);
             setClickedLocation(null);
           }}
-          location={clickedLocation}
-          onMemoryCreated={handleMemoryCreated}
+          location={{
+            id: -1,
+            uuid: '',
+            name: `Địa điểm tại ${clickedLocation.lat.toFixed(4)}, ${clickedLocation.lng.toFixed(4)}`,
+            description: `Vị trí được chọn tại tọa độ ${clickedLocation.lat.toFixed(4)}, ${clickedLocation.lng.toFixed(4)}`,
+            latitude: clickedLocation.lat,
+            longitude: clickedLocation.lng,
+            address: '',
+            country: 'Việt Nam',
+            city: 'Hà Nội',
+            memory_count: 0,
+            created_at: '',
+            updated_at: '',
+          }}
+          onSuccess={handleMemoryCreated}
         />
       )}
 
-      {/* View Memories Modal */}
-      {showViewMemoriesModal && selectedLocation && (
-        <ViewMemoriesModal
-          isOpen={showViewMemoriesModal}
-          onClose={() => setShowViewMemoriesModal(false)}
+      {/* Marker Detail Modal */}
+      {showMarkerDetailModal && selectedLocation && (
+        <MarkerDetailModal
+          isOpen={showMarkerDetailModal}
+          onClose={() => setShowMarkerDetailModal(false)}
           location={selectedLocation}
         />
       )}

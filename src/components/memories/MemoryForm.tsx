@@ -19,7 +19,7 @@ import {
   Save
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { Memory, Location, Media, UserShopItem } from '@/types/api';
+import { Memory, Location, Media, UserShopItem, CreateMemoryLocationRequest, UpdateMemoryLocationRequest, MemoryImage } from '@/types/api';
 import apiClient from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -38,13 +38,19 @@ const RichTextEditor = dynamic(() => import('@/components/ui/RichTextEditor'), {
 });
 
 const memorySchema = z.object({
-  title: z.string().min(1, 'Tiêu đề không được để trống').max(200, 'Tiêu đề quá dài'),
-  location_id: z.number().optional(),
+  title: z.string().min(1, 'Tiêu đề không được để trống').max(255, 'Tiêu đề quá dài'),
+  location_name: z.string().min(1, 'Tên địa điểm không được để trống'),
+  location_description: z.string().optional(),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  country: z.string().optional(),
   content: z.string().min(1, 'Nội dung không được để trống'),
-  visit_date: z.string().min(1, 'Vui lòng chọn ngày ghé thăm'),
+  visit_date: z.string().optional(),
   tags: z.array(z.string()).default([]),
   is_public: z.boolean().default(false),
-  marker_item_id: z.number().optional(),
+  marker_item: z.number().optional(),
 });
 
 type MemoryFormData = z.infer<typeof memorySchema>;
@@ -65,11 +71,8 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
   className = '',
 }) => {
   const { userItems } = useAuth();
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [loadingLocations, setLoadingLocations] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploadedMedia, setUploadedMedia] = useState<Media[]>([]);
   const [uploading, setUploading] = useState(false);
   const [selectedMarker, setSelectedMarker] = useState<UserShopItem | null>(null);
 
@@ -80,11 +83,17 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
     defaultValues: {
       title: memory?.title || '',
       content: memory?.content || '',
-      location_id: memory?.location?.id || undefined, // Only set if editing existing memory
+      location_name: memory?.location?.name || '',
+      location_description: memory?.location?.description || '',
+      latitude: memory?.location?.latitude?.toString() || '',
+      longitude: memory?.location?.longitude?.toString() || '',
+      address: memory?.location?.address || '',
+      city: memory?.location?.city || '',
+      country: memory?.location?.country || '',
       visit_date: memory?.visit_date || format(new Date(), 'yyyy-MM-dd'),
       is_public: memory?.is_public ?? false,
       tags: memory?.tags || [],
-      marker_item_id: undefined,
+      marker_item: memory?.marker_item_id || undefined,
     },
   });
 
@@ -102,84 +111,46 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
       if (markerItem) {
         setSelectedMarker(markerItem);
       }
+    } else if (memory?.location?.marker_item_id) {
+      // If memory doesn't have marker_item_id but location does
+      const markerItem = userItems.find(item => item.id === memory.location.marker_item_id);
+      if (markerItem) {
+        setSelectedMarker(markerItem);
+      }
     } else {
       // Default to null (default marker) for new memories
       setSelectedMarker(null);
     }
-  }, [memory?.marker_item_id, userItems]);
+  }, [memory?.marker_item_id, memory?.location?.marker_item_id, userItems]);
 
-  // Load locations
+  // Auto-set location from preselectedLocation or memory
   useEffect(() => {
-    const loadLocations = async () => {
-      try {
-        setLoadingLocations(true);
-        const response = await apiClient.getLocations({ limit: 100 });
-        if (response.success && response.data) {
-          setLocations(response.data);
-          
-          // Set preselected location if provided
-          if (preselectedLocation && !memory) {
-            setValue('location_id', preselectedLocation.id);
-          }
-        }
-      } catch (error) {
-        toast.error('Không thể tải danh sách địa điểm');
-      } finally {
-        setLoadingLocations(false);
-      }
-    };
-
-    loadLocations();
-  }, [preselectedLocation?.id, memory?.id, setValue]);
-
-  // Auto-create location from coordinates if preselectedLocation is provided
-  useEffect(() => {
-    if (preselectedLocation && preselectedLocation.latitude && preselectedLocation.longitude) {
-      // Create a temporary location object for display
-      const tempLocation: Location = {
-        id: -1, // Temporary ID
-        uuid: '',
-        name: `Địa điểm tại ${preselectedLocation.latitude.toFixed(4)}, ${preselectedLocation.longitude.toFixed(4)}`,
-        description: `Vị trí được chọn tại tọa độ ${preselectedLocation.latitude.toFixed(4)}, ${preselectedLocation.longitude.toFixed(4)}`,
-        latitude: preselectedLocation.latitude,
-        longitude: preselectedLocation.longitude,
-        address: '',
-        country: 'Việt Nam', // Default country
-        city: 'Hà Nội', // Default city - will be updated by reverse geocoding
-        memory_count: 0,
-        created_at: '',
-        updated_at: '',
-      };
-      
-      // Add to locations list if not already present
-      if (!locations.find(loc => 
-        loc.latitude === preselectedLocation.latitude && 
-        loc.longitude === preselectedLocation.longitude
-      )) {
-        setLocations(prev => [tempLocation, ...prev]);
-      }
-      
-      // Set as selected location
-      setValue('location_id', tempLocation.id);
+    if (preselectedLocation && !memory) {
+      // For new memory with preselected location
+      setValue('location_name', preselectedLocation.name || `Địa điểm tại ${preselectedLocation.latitude.toFixed(4)}, ${preselectedLocation.longitude.toFixed(4)}`);
+      setValue('location_description', preselectedLocation.description || `Vị trí được chọn tại tọa độ ${preselectedLocation.latitude.toFixed(4)}, ${preselectedLocation.longitude.toFixed(4)}`);
+      setValue('latitude', preselectedLocation.latitude.toFixed(6));
+      setValue('longitude', preselectedLocation.longitude.toFixed(6));
+      setValue('address', preselectedLocation.address || '');
+      setValue('city', preselectedLocation.city || 'Hà Nội');
+      setValue('country', preselectedLocation.country || 'Việt Nam');
+    } else if (memory) {
+      // For editing existing memory
+      setValue('title', memory.title || '');
+      setValue('content', memory.content || '');
+      setValue('location_name', memory.location?.name || '');
+      setValue('location_description', memory.location?.description || '');
+      setValue('latitude', memory.location?.latitude?.toString() || '');
+      setValue('longitude', memory.location?.longitude?.toString() || '');
+      setValue('address', memory.location?.address || '');
+      setValue('city', memory.location?.city || '');
+      setValue('country', memory.location?.country || '');
+      setValue('visit_date', memory.visit_date || format(new Date(), 'yyyy-MM-dd'));
+      setValue('is_public', memory.is_public ?? false);
+      setValue('tags', memory.tags || []);
+      setValue('marker_item', memory.marker_item_id || memory.location?.marker_item_id || undefined);
     }
-  }, [preselectedLocation, setValue]);
-
-  // Load existing media for editing
-  useEffect(() => {
-    if (memory) {
-      const loadMedia = async () => {
-        try {
-          const response = await apiClient.getMemoryMedia(memory.uuid);
-          if (response.success && response.data) {
-            setUploadedMedia(response.data);
-          }
-        } catch (error) {
-          // Silent error handling
-        }
-      };
-      loadMedia();
-    }
-  }, [memory]);
+  }, [preselectedLocation, memory, setValue]);
 
   const addTag = () => {
     const trimmedTag = tagInput.trim().toLowerCase();
@@ -204,6 +175,12 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
       return isValid;
     });
     
+    // Check if total files exceed 5
+    if (selectedFiles.length + validFiles.length > 5) {
+      toast.error('Tối đa chỉ được upload 5 hình ảnh');
+      return;
+    }
+    
     setSelectedFiles(prev => [...prev, ...validFiles]);
   };
 
@@ -211,104 +188,139 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const uploadFiles = async (memoryId: number) => {
-    if (selectedFiles.length === 0) return;
-
-    try {
-      setUploading(true);
-      const uploadPromises = selectedFiles.map((file, index) =>
-        apiClient.uploadMedia(memoryId, file, index)
-      );
-
-      const results = await Promise.all(uploadPromises);
-      const successfulUploads = results
-        .filter(result => result.success)
-        .map(result => result.data!);
-
-      setUploadedMedia(prev => [...prev, ...successfulUploads]);
-      setSelectedFiles([]);
-      
-      toast.success(`Đã tải lên ${successfulUploads.length} file`);
-    } catch (error) {
-      toast.error('Có lỗi xảy ra khi tải file');
-    } finally {
-      setUploading(false);
+  const convertFilesToBase64 = async (files: File[]): Promise<MemoryImage[]> => {
+    const images: MemoryImage[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const base64 = await apiClient.fileToBase64(file);
+        images.push({
+          image_base64: base64,
+          caption: file.name,
+          order: i,
+        });
+      } catch (error) {
+        toast.error(`Không thể xử lý file ${file.name}`);
+      }
     }
+    
+    return images;
   };
 
   const onSubmit = async (data: MemoryFormData) => {
     try {
-      let result;
+      setUploading(true);
+      
+      // Convert selected files to base64
+      const images = await convertFilesToBase64(selectedFiles);
       
       // Prepare request data
-      const requestData: any = {
-        ...data,
-        marker_item_id: selectedMarker?.id,
+      const requestData: CreateMemoryLocationRequest = {
+        // Location fields
+        location_name: data.location_name,
+        location_description: data.location_description,
+        latitude: data.latitude || '',
+        longitude: data.longitude || '',
+        address: data.address,
+        city: data.city,
+        country: data.country,
+        marker_item: selectedMarker?.id,
+        
+        // Memory fields
+        title: data.title,
+        content: data.content,
+        visit_date: data.visit_date,
+        is_public: data.is_public,
+        tags: data.tags,
+        
+        // Images
+        images: images,
       };
 
-      // If we have preselectedLocation, create location first
-      if (preselectedLocation) {
-        try {
-          // Create location first with marker_item_id
-          const locationData = {
-            name: `Địa điểm tại ${preselectedLocation.latitude.toFixed(4)}, ${preselectedLocation.longitude.toFixed(4)}`,
-            description: `Vị trí được chọn tại tọa độ ${preselectedLocation.latitude.toFixed(4)}, ${preselectedLocation.longitude.toFixed(4)}`,
-            latitude: preselectedLocation.latitude,
-            longitude: preselectedLocation.longitude,
-            country: preselectedLocation.country,
-            city: preselectedLocation.city,
-            marker_item_id: selectedMarker?.id, // Add marker_item_id to location request
-          };
-
-          const locationResult = await apiClient.createLocation(locationData);
-          
-          if (locationResult.success && locationResult.data) {
-            // Use the created location's ID
-            requestData.location_id = locationResult.data.id;
-          } else {
-            throw new Error('Không thể tạo địa điểm');
-          }
-        } catch (error) {
-          toast.error('Không thể tạo địa điểm. Vui lòng thử lại.');
-          return;
-        }
-      } else {
-        // If no preselectedLocation, we need a location_id
-        if (!data.location_id) {
-          toast.error('Vui lòng chọn địa điểm hoặc click trên bản đồ để tạo địa điểm mới.');
-          return;
-        }
-        requestData.location_id = data.location_id;
-      }
+      let result;
       
       if (isEditing && memory) {
         // Update existing memory
-        const updateData = {
+        const updateData: UpdateMemoryLocationRequest = {
+          location_name: data.location_name,
+          location_description: data.location_description,
+          latitude: data.latitude || '',
+          longitude: data.longitude || '',
+          address: data.address,
+          city: data.city,
+          country: data.country,
+          marker_item: selectedMarker?.id,
           title: data.title,
           content: data.content,
           visit_date: data.visit_date,
           is_public: data.is_public,
           tags: data.tags,
-          marker_item_id: selectedMarker?.id,
+          images: images,
         };
-        result = await apiClient.updateMemory(memory.uuid, updateData);
+        result = await apiClient.updateMemoryLocation(memory.id, updateData);
       } else {
-        // Create new memory (without marker_item_id)
-        delete requestData.marker_item_id; // Remove marker_item_id from memory request
-        result = await apiClient.createMemory(requestData);
+        // Create new memory
+        result = await apiClient.createMemoryLocation(requestData);
       }
 
       if (result.success && result.data) {
-        // Upload files if any
-        if (selectedFiles.length > 0) {
-          await uploadFiles(result.data.id);
-        }
-
         toast.success(isEditing ? 'Cập nhật kỷ niệm thành công!' : 'Tạo kỷ niệm thành công!');
-        onSuccess?.(result.data);
+        
+        // Convert response to Memory format for compatibility
+        const memoryData: Memory = {
+          id: result.data.id,
+          uuid: '', // API mới không trả về uuid
+          title: result.data.title,
+          content: result.data.content,
+          visit_date: result.data.visit_date,
+          is_public: result.data.is_public,
+          tags: result.data.tags,
+          like_count: result.data.like_count,
+          is_liked: result.data.is_liked_by_user,
+          media_count: result.data.image_count,
+          marker_item_id: result.data.location.marker_item,
+          image_base64: result.data.image_base64,
+          user: { id: result.data.user } as any,
+          location: {
+            id: result.data.location.id,
+            uuid: '',
+            name: result.data.location.name,
+            description: result.data.location.description,
+            latitude: parseFloat(result.data.location.latitude),
+            longitude: parseFloat(result.data.location.longitude),
+            address: result.data.location.address,
+            country: result.data.location.country,
+            city: result.data.location.city,
+            memory_count: 0,
+            marker_item_id: result.data.location.marker_item,
+            image_base64: result.data.location.image_base64,
+            created_at: result.data.location.created_at,
+            updated_at: result.data.location.updated_at,
+          },
+          media: result.data.images.map(img => ({
+            id: img.id || 0,
+            uuid: '',
+            filename: img.caption || 'image',
+            original_filename: img.caption || 'image',
+            file_path: '',
+            file_size: 0,
+            mime_type: 'image/jpeg',
+            media_type: 'image' as const,
+            display_order: img.order || 0,
+            url: img.image_base64,
+            created_at: img.created_at || '',
+          })),
+          created_at: result.data.created_at,
+          updated_at: result.data.updated_at,
+        };
+        
+        onSuccess?.(memoryData);
       }
     } catch (error) {
       toast.error(isEditing ? 'Không thể cập nhật kỷ niệm' : 'Không thể tạo kỷ niệm');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -385,6 +397,83 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
               {errors.title.message}
             </motion.p>
           )}
+        </div>
+
+        {/* Location Name */}
+        <div>
+          <label className="form-label">Tên địa điểm</label>
+          <input
+            {...register('location_name')}
+            type="text"
+            className={`form-input ${errors.location_name ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+            placeholder="Nhập tên địa điểm..."
+          />
+          {errors.location_name && (
+            <motion.p
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="form-error"
+            >
+              {errors.location_name.message}
+            </motion.p>
+          )}
+        </div>
+
+        {/* Location Description */}
+        <div>
+          <label className="form-label">Mô tả địa điểm</label>
+          <textarea
+            {...register('location_description')}
+            className="form-input"
+            rows={3}
+            placeholder="Mô tả về địa điểm này..."
+          />
+        </div>
+
+        {/* Coordinates - Hidden fields */}
+        <div className="hidden">
+          <input
+            {...register('latitude')}
+            type="hidden"
+          />
+          <input
+            {...register('longitude')}
+            type="hidden"
+          />
+        </div>
+
+        {/* Address */}
+        <div>
+          <label className="form-label">Địa chỉ</label>
+          <input
+            {...register('address')}
+            type="text"
+            className="form-input"
+            placeholder="Nhập địa chỉ chi tiết..."
+          />
+        </div>
+
+        {/* City and Country */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Thành phố</label>
+            <input
+              {...register('city')}
+              type="text"
+              className="form-input"
+              placeholder="Hà Nội"
+            />
+          </div>
+          
+          <div>
+            <label className="form-label">Quốc gia</label>
+            <input
+              {...register('country')}
+              type="text"
+              className="form-input"
+              placeholder="Việt Nam"
+            />
+          </div>
         </div>
 
         {/* Marker Selection */}
@@ -545,18 +634,9 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
             <input
               {...register('visit_date')}
               type="date"
-              className={`form-input pl-12 pr-4 ${errors.visit_date ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+              className="form-input pl-12 pr-4"
             />
           </div>
-          {errors.visit_date && (
-            <motion.p
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="form-error"
-            >
-              {errors.visit_date.message}
-            </motion.p>
-          )}
         </div>
 
         {/* Content */}
@@ -629,14 +709,14 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
 
         {/* File Upload */}
         <div>
-          <label className="form-label">Tệp đính kèm</label>
+          <label className="form-label">Hình ảnh (tối đa 5 ảnh)</label>
           <div className="space-y-4">
             {/* File Selection */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-400 transition-colors">
               <input
                 type="file"
                 multiple
-                accept="image/*,video/*"
+                accept="image/*"
                 onChange={handleFileSelect}
                 className="hidden"
                 id="file-upload"
@@ -644,10 +724,10 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
               <label htmlFor="file-upload" className="cursor-pointer">
                 <Upload className="mx-auto h-12 w-12 text-gray-400" />
                 <p className="mt-2 text-sm text-gray-600">
-                  Click để chọn file hoặc kéo thả vào đây
+                  Click để chọn ảnh hoặc kéo thả vào đây
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Hỗ trợ: JPG, PNG, GIF, MP4, MOV (tối đa 50MB/file)
+                  Hỗ trợ: JPG, PNG, GIF (tối đa 50MB/file, tối đa 5 ảnh)
                 </p>
               </label>
             </div>
@@ -655,17 +735,11 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
             {/* Selected Files */}
             {selectedFiles.length > 0 && (
               <div className="space-y-2">
-                <h4 className="text-sm font-medium text-gray-700">Files đã chọn:</h4>
+                <h4 className="text-sm font-medium text-gray-700">Ảnh đã chọn ({selectedFiles.length}/5):</h4>
                 {selectedFiles.map((file, index) => (
                   <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      {file.type.startsWith('image/') ? (
-                        <ImageIcon className="h-5 w-5 text-blue-500" />
-                      ) : file.type.startsWith('video/') ? (
-                        <Video className="h-5 w-5 text-red-500" />
-                      ) : (
-                        <File className="h-5 w-5 text-gray-500" />
-                      )}
+                      <ImageIcon className="h-5 w-5 text-blue-500" />
                       <div>
                         <p className="text-sm font-medium text-gray-700">{file.name}</p>
                         <p className="text-xs text-gray-500">
@@ -684,29 +758,20 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
                 ))}
               </div>
             )}
-
-            {/* Uploaded Media */}
-            {uploadedMedia.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-gray-700">Files đã tải lên:</h4>
-                {uploadedMedia.map((media) => (
-                  <div key={media.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      {media.media_type === 'image' ? (
-                        <ImageIcon className="h-5 w-5 text-green-500" />
-                      ) : (
-                        <Video className="h-5 w-5 text-green-500" />
-                      )}
-                      <div>
-                        <p className="text-sm font-medium text-gray-700">{media.filename}</p>
-                        <p className="text-xs text-gray-500">Đã tải lên thành công</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
+        </div>
+
+        {/* Public/Private Toggle */}
+        <div className="flex items-center space-x-3">
+          <input
+            {...register('is_public')}
+            type="checkbox"
+            id="is_public"
+            className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500"
+          />
+          <label htmlFor="is_public" className="text-sm font-medium text-gray-700">
+            Công khai kỷ niệm này
+          </label>
         </div>
 
         {/* Submit Buttons */}
@@ -715,7 +780,7 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
             type="submit"
             variant="primary"
             fullWidth
-            loading={isSubmitting}
+            loading={isSubmitting || uploading}
             disabled={isSubmitting || uploading}
           >
             <Save className="h-5 w-5 mr-2" />
