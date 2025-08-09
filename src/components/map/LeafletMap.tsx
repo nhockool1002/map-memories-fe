@@ -9,6 +9,7 @@ import { Location, Memory } from '@/types/api';
 import Button from '@/components/ui/Button';
 import MemoryModal from '@/components/memories/MemoryModal';
 import { format } from 'date-fns';
+import MarkerDetailModal from '@/components/memories/MarkerDetailModal';
 
 // Fix for default markers in Next.js
 delete (Icon.Default.prototype as any)._getIconUrl;
@@ -77,10 +78,12 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showMarkerDetailModal, setShowMarkerDetailModal] = useState(false);
 
   const handleLocationClick = useCallback((location: Location) => {
     setSelectedLocation(location);
     onLocationClick?.(location);
+    setShowMarkerDetailModal(true);
   }, [onLocationClick]);
 
   const handleAddMemory = useCallback((location: Location) => {
@@ -334,6 +337,14 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
         memory={selectedMemory || undefined}
         onSuccess={handleModalSuccess}
       />
+
+      {showMarkerDetailModal && selectedLocation && (
+        <MarkerDetailModal
+          isOpen={showMarkerDetailModal}
+          onClose={() => setShowMarkerDetailModal(false)}
+          location={selectedLocation}
+        />
+      )}
     </div>
   );
 };
