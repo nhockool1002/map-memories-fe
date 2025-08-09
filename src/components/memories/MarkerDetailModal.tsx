@@ -33,19 +33,22 @@ const MarkerDetailModal: React.FC<MarkerDetailModalProps> = ({
     setError(null);
     
     try {
-      // Lấy memories của location này
+      // Lấy memories của location này sử dụng API cũ
       const response = await apiClient.getLocationMemories(location.uuid, {
         limit: 50, // Lấy tối đa 50 memories
         is_public: undefined // Lấy cả public và private
       });
 
       if (response.data) {
-        // Chuyển đổi từ Memory sang MemoryLocationResponse format
+        // Sử dụng API 2.2 để lấy chi tiết memories với format mới
         const memoryDetails = await Promise.all(
           response.data.map(async (memory) => {
             try {
               const detailResponse = await apiClient.getMemoryLocationDetail(memory.id);
-              return detailResponse.data;
+              if (detailResponse.success && detailResponse.data) {
+                return detailResponse.data;
+              }
+              return null;
             } catch (error) {
               console.error(`Error fetching memory detail for ${memory.id}:`, error);
               return null;
@@ -133,6 +136,16 @@ const MarkerDetailModal: React.FC<MarkerDetailModalProps> = ({
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">
                   Thông tin địa điểm
                 </h3>
+                {/* Location Image from API 2.2 */}
+                {location.image_base64 && (
+                  <div className="mb-4">
+                    <img
+                      src={location.image_base64}
+                      alt={location.name}
+                      className="w-full h-48 object-cover rounded-lg shadow-sm"
+                    />
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-600">Tên địa điểm</p>
@@ -160,6 +173,18 @@ const MarkerDetailModal: React.FC<MarkerDetailModalProps> = ({
                       {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
                     </p>
                   </div>
+                  {/* Memory count */}
+                  <div>
+                    <p className="text-sm text-gray-600">Số kỷ niệm</p>
+                    <p className="font-medium">{memories.length} kỷ niệm</p>
+                  </div>
+                  {/* Marker info if available */}
+                  {location.marker_item_id && (
+                    <div>
+                      <p className="text-sm text-gray-600">Marker tùy chỉnh</p>
+                      <p className="font-medium text-green-600">✓ Đã thiết lập</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -200,79 +225,123 @@ const MarkerDetailModal: React.FC<MarkerDetailModalProps> = ({
                 )}
 
                 {!loading && !error && memories.length > 0 && (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {memories.map((memory) => (
-                      <div key={memory.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h4 className="text-lg font-semibold text-gray-900 mb-1">
-                              {memory.title}
-                            </h4>
-                            <p className="text-gray-600 text-sm mb-2">
-                              {memory.content.length > 150 
-                                ? `${memory.content.substring(0, 150)}...` 
-                                : memory.content
-                              }
-                            </p>
-                          </div>
-                                                     <div className="flex items-center space-x-2 ml-4">
-                             {memory.is_public ? (
-                               <Eye className="h-4 w-4 text-green-600" />
-                             ) : (
-                               <EyeOff className="h-4 w-4 text-gray-400" />
-                             )}
-                            <div className="flex items-center space-x-1">
-                              <Heart className={`h-4 w-4 ${memory.is_liked_by_user ? 'text-red-500 fill-current' : 'text-gray-400'}`} />
-                              <span className="text-sm text-gray-600">{memory.like_count}</span>
+                      <div key={memory.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+                        {/* Memory Header */}
+                        <div className="p-4 bg-white">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h4 className="text-lg font-semibold text-gray-900 mb-1">
+                                {memory.title}
+                              </h4>
+                              <div 
+                                className="text-gray-600 text-sm mb-2"
+                                dangerouslySetInnerHTML={{
+                                  __html: memory.content.length > 150 
+                                    ? `${memory.content.substring(0, 150)}...` 
+                                    : memory.content
+                                }}
+                              />
+                            </div>
+                            <div className="flex items-center space-x-2 ml-4">
+                              {memory.is_public ? (
+                                <Eye className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <EyeOff className="h-4 w-4 text-gray-400" />
+                              )}
+                              <div className="flex items-center space-x-1">
+                                <Heart className={`h-4 w-4 ${memory.is_liked_by_user ? 'text-red-500 fill-current' : 'text-gray-400'}`} />
+                                <span className="text-sm text-gray-600">{memory.like_count}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Memory Details */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                          <div className="flex items-center space-x-2">
-                            <Calendar className="h-4 w-4 text-gray-400" />
-                            <span className="text-gray-600">
-                              {memory.visit_date ? formatDate(memory.visit_date) : 'Không có ngày thăm'}
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center space-x-2">
-                            <User className="h-4 w-4 text-gray-400" />
-                            <span className="text-gray-600">ID: {memory.user}</span>
-                          </div>
-
-                          {memory.tags && memory.tags.length > 0 && (
-                            <div className="flex items-center space-x-2 md:col-span-2">
-                              <Tag className="h-4 w-4 text-gray-400" />
-                              <div className="flex flex-wrap gap-1">
-                                {memory.tags.map((tag, index) => (
-                                  <span
-                                    key={index}
-                                    className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
-                                  >
-                                    {tag}
-                                  </span>
+                          {/* Memory Images from API 2.2 */}
+                          {memory.images && memory.images.length > 0 && (
+                            <div className="mb-4">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                {memory.images.slice(0, 6).map((image, index) => (
+                                  <div key={image.id || index} className="relative">
+                                    <img
+                                      src={image.image_base64}
+                                      alt={image.caption || `Hình ${index + 1}`}
+                                      className="w-full h-24 object-cover rounded-lg"
+                                    />
+                                    {image.caption && (
+                                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b-lg">
+                                        {image.caption}
+                                      </div>
+                                    )}
+                                  </div>
                                 ))}
+                                {memory.images.length > 6 && (
+                                  <div className="flex items-center justify-center bg-gray-100 rounded-lg h-24">
+                                    <span className="text-gray-500 text-sm">
+                                      +{memory.images.length - 6} ảnh
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
 
-                          {memory.images && memory.images.length > 0 && (
-                            <div className="flex items-center space-x-2 md:col-span-2">
-                              <ImageIcon className="h-4 w-4 text-gray-400" />
+                          {/* Memory Details */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div className="flex items-center space-x-2">
+                              <Calendar className="h-4 w-4 text-gray-400" />
                               <span className="text-gray-600">
-                                {memory.image_count} hình ảnh
+                                {memory.visit_date ? formatDate(memory.visit_date) : 'Không có ngày thăm'}
                               </span>
                             </div>
-                          )}
-                        </div>
+                            
+                            <div className="flex items-center space-x-2">
+                              <User className="h-4 w-4 text-gray-400" />
+                              <span className="text-gray-600">ID: {memory.user}</span>
+                            </div>
 
-                        {/* Created/Updated Info */}
-                        <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
-                          <div className="flex justify-between">
-                            <span>Tạo: {formatDateTime(memory.created_at)}</span>
-                            <span>Cập nhật: {formatDateTime(memory.updated_at)}</span>
+                            {memory.images && memory.images.length > 0 && (
+                              <div className="flex items-center space-x-2">
+                                <ImageIcon className="h-4 w-4 text-gray-400" />
+                                <span className="text-gray-600">
+                                  {memory.image_count} hình ảnh
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Location info from API 2.2 */}
+                            {memory.location && (
+                              <div className="flex items-center space-x-2">
+                                <MapPin className="h-4 w-4 text-gray-400" />
+                                <span className="text-gray-600">
+                                  {memory.location.name}
+                                </span>
+                              </div>
+                            )}
+
+                            {memory.tags && memory.tags.length > 0 && (
+                              <div className="flex items-center space-x-2 md:col-span-2">
+                                <Tag className="h-4 w-4 text-gray-400" />
+                                <div className="flex flex-wrap gap-1">
+                                  {memory.tags.map((tag, index) => (
+                                    <span
+                                      key={index}
+                                      className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                                    >
+                                      #{tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Created/Updated Info */}
+                          <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
+                            <div className="flex justify-between">
+                              <span>Tạo: {formatDateTime(memory.created_at)}</span>
+                              <span>Cập nhật: {formatDateTime(memory.updated_at)}</span>
+                            </div>
                           </div>
                         </div>
                       </div>

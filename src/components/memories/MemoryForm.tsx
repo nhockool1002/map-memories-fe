@@ -315,6 +315,13 @@ const MemoryForm: React.FC<MemoryFormProps> = ({
           updated_at: result.data.updated_at,
         };
         
+        // Reset form state sau khi tạo thành công
+        if (!isEditing) {
+          setSelectedFiles([]);
+          setTagInput('');
+          setSelectedMarker(null);
+        }
+        
         onSuccess?.(memoryData);
       }
     } catch (error) {
